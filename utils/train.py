@@ -64,6 +64,11 @@ def evaluate(config, model=None, test_loader=None):
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
     model.eval()
+    if config["type"] == "eval":
+        print(f"{sum(p.numel() for p in model.parameters())} parameters")
+        if config["prune_pct"]:
+            model.prune(config["prune_pct"], freeze=True)
+            print(f"{sum(p.numel() for p in model.parameters())} parameters after slimming")
     criterion = nn.CrossEntropyLoss()
     results = []
     total = 0
@@ -87,6 +92,8 @@ def train(config):
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
+    if config["finetune"]:
+        model.prune(config["prune_pct"])
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
@@ -110,14 +117,15 @@ def train(config):
             scores = model(model_in)
             labels = Variable(labels, requires_grad=False)
             loss = criterion(scores, labels)
+            if config["slimming_lambda"]:
+                loss += model.regularization()
             loss.backward()
             optimizer.step()
             step_no += 1
             if step_no > schedule_steps[sched_idx]:
                 sched_idx += 1
                 print("changing learning rate to {}".format(config["lr"][sched_idx]))
-                optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][sched_idx],
-                    nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
+                optimizer.param_groups[0]["lr"] = config["lr"][sched_idx]
             print_eval("train step #{}".format(step_no), scores, labels, loss)
 
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
@@ -155,13 +163,13 @@ def main():
         mod.SpeechDataset.default_config(),
         global_config)
     parser = builder.build_argparse()
-    parser.add_argument("--mode", choices=["train", "eval"], default="train", type=str)
+    parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
     config = builder.config_from_argparse(parser)
     config["model_class"] = mod_cls
     set_seed(config)
-    if config["mode"] == "train":
+    if config["type"] == "train":
         train(config)
-    elif config["mode"] == "eval":
+    elif config["type"] == "eval":
         evaluate(config)
 
 if __name__ == "__main__":
