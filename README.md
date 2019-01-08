@@ -118,6 +118,15 @@ There are command options available:
 
 ### Recording audio
 
+`PersonalizedSpeechDataset` generates dataset where user specific audio is mixed up
+set 'keep_original' to True to only replace subset of data with user data and
+set it to False to generate dataset which only consists user audios
+set `exp_type` to set experiment type. Valid options are `epochs`, `data_size`, `lr`, `all`.
+Default is `all` where it runs all 3 experiments
+
+
+### Recording audio
+
 You may do the following to record sequential audio and save to the same format as that of speech command dataset:
 ```
 python -m utils.record

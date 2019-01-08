@@ -1,5 +1,6 @@
 from collections import ChainMap
 import argparse
+import datetime
 import os
 import random
 import sys
@@ -11,6 +12,17 @@ import torch.nn as nn
 import torch.utils.data as data
 
 from . import model as mod
+
+TEXT_COLOR = {
+    'HEADER':'\033[95m',
+    'OKBLUE':'\033[94m',
+    'OKGREEN':'\033[92m',
+    'WARNING':'\033[93m',
+    'FAIL':'\033[91m',
+    'ENDC':'\033[0m',
+    'BOLD':'\033[1m',
+    'UNDERLINE':'\033[4m'
+}
 
 class ConfigBuilder(object):
     def __init__(self, *default_configs):
@@ -40,7 +52,7 @@ def print_eval(name, scores, labels, loss, end="\n"):
     batch_size = labels.size(0)
     accuracy = (torch.max(scores, 1)[1].view(batch_size).data == labels.data).float().sum() / batch_size
     loss = loss.item()
-    print("{} accuracy: {:>5}, loss: {:<25}".format(name, accuracy, loss), end=end)
+    # print("{} accuracy: {:>5}, loss: {:<25}".format(name, accuracy, loss), end=end)
     return accuracy
 
 def set_seed(config):
@@ -53,7 +65,10 @@ def set_seed(config):
 
 def evaluate(config, model=None, test_loader=None):
     if not test_loader:
-        _, _, test_set = mod.SpeechDataset.splits(config)
+        if config["personalized"]:
+            _, _, test_set = mod.PersonalizedSpeechDataset.splits(config)
+        else:
+            _, _, test_set = mod.SpeechDataset.splits(config)
         test_loader = data.DataLoader(test_set, batch_size=len(test_set))
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
@@ -77,10 +92,15 @@ def evaluate(config, model=None, test_loader=None):
         loss = criterion(scores, labels)
         results.append(print_eval("test", scores, labels, loss) * model_in.size(0))
         total += model_in.size(0)
-    print("final test accuracy: {}".format(sum(results) / total))
+    accuracy = sum(results) / total
+    print("final test accuracy: {}".format(accuracy))
+    return accuracy.item()
 
 def train(config):
-    train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
+    if config["personalized"]:
+        train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+    else:
+        train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
     model = config["model_class"](config)
     if config["input_file"]:
         model.load(config["input_file"])
@@ -139,7 +159,140 @@ def train(config):
                 print("saving best model...")
                 max_acc = avg_acc
                 model.save(config["output_file"])
-    evaluate(config, model, test_loader)
+    return evaluate(config, model, test_loader)
+
+def evaluate_personalization(config, acc_map=None):
+    config["personalized"] = False
+    config["keep_original"] = False
+    acc = evaluate(config)
+    print("\n< accuracy on original data : ", acc)
+    if acc_map:
+        acc_map['original'].append(acc)
+
+    config["personalized"] = True
+    config["keep_original"] = True
+    acc = evaluate(config)
+    print("\n< accuracy on mixed personalized data : ", acc)
+    if acc_map:
+        acc_map['mixed'].append(acc)
+    
+    config["personalized"] = True
+    config["keep_original"] = False
+    acc = evaluate(config)
+    print("\n< accuracy on pure personalized data : ", acc)
+    if acc_map:
+        acc_map['personalized'].append(acc)
+
+def evaluate_data_size(config):
+    print(TEXT_COLOR['WARNING'] + "\n~~ personalization (size of personalized data set) ~~" + TEXT_COLOR['ENDC'])
+
+    # 2 seems to be enough to see the difference
+    # config["n_epochs"] = 10
+    config["n_epochs"] = 2
+    config["lr"] = [0.001]
+
+    data_size = []
+    acc_map = {
+        'original':[],
+        'mixed':[],
+        'personalized':[]
+    }
+
+    # for i in range(10, 90, 10):
+    for i in range(0, 11):
+        config["size_per_word"] = i
+        data_size.append(config["size_per_word"])
+        new_model_file_name = config['model_dir'] + 'datasize_' + str(config["size_per_word"]) + '_' + config['model_file_suffix']
+        print("\n\n~~ Size per keyword : " + str(config["size_per_word"]) + " ~~")
+        print("~~ Model path : " + new_model_file_name + " ~~")
+        config["input_file"] = config['original_model']
+        config["output_file"] = new_model_file_name
+
+        if config["size_per_word"] == 0:
+            config["input_file"] = config['original_model']
+        else:
+            print("\n< train further only with personalized data >")
+            config["personalized"] = True
+            config["keep_original"] = False
+            train(config)
+            config["input_file"] = new_model_file_name
+
+        evaluate_personalization(config, acc_map)
+
+        print(TEXT_COLOR['WARNING'] + str(data_size[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    best_index = np.argmax(acc_map['personalized'])
+    return data_size, acc_map, best_index
+
+def evaluate_lr(config):
+    print(TEXT_COLOR['WARNING'] + "\n~~ personalization (learning rate) ~~" + TEXT_COLOR['ENDC'])
+    config["n_epochs"] = 10
+    config["size_per_word"] = 80
+
+    lr = []
+    acc_map = {
+        'original':[],
+        'mixed':[],
+        'personalized':[]
+    }
+
+    for i in range(1, 5):
+        config["lr"] = [round(0.1**i, i)]
+        lr.append(config["lr"][0])
+        new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
+        print("\n\n~~ learning rate : " + str(config["lr"][0]) + " ~~")
+        print("~~ Model path : " + new_model_file_name + " ~~")
+        config["input_file"] = config['original_model']
+        config["output_file"] = new_model_file_name
+
+        print("\n< train further only with personalized data >")
+        config["personalized"] = True
+        config["keep_original"] = False
+        train(config)
+
+        config["input_file"] = new_model_file_name
+
+        evaluate_personalization(config, acc_map)
+
+        print(TEXT_COLOR['WARNING'] + str(lr[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    best_index = np.argmax(acc_map['personalized'])
+    return lr, acc_map, best_index
+
+def evaluate_epochs(config):
+    print(TEXT_COLOR['WARNING'] + "\n~~ personalization (epochs) ~~" + TEXT_COLOR['ENDC'])
+    config["lr"] = [0.001]
+    config["size_per_word"] = 80
+
+    epochs = []
+    acc_map = {
+        'original':[],
+        'mixed':[],
+        'personalized':[]
+    }
+
+    for i in range(2, 21, 2):
+        config["n_epochs"] = i
+        epochs.append(config["n_epochs"])
+        new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
+        print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
+        print("~~ Model path : " + new_model_file_name + " ~~")
+        config["input_file"] = config['original_model']
+        config["output_file"] = new_model_file_name
+
+        print("\n< train further only with personalized data >")
+        config["personalized"] = True
+        config["keep_original"] = False
+        train(config)
+
+        config["input_file"] = new_model_file_name
+
+        evaluate_personalization(config, acc_map)
+
+        print(TEXT_COLOR['WARNING'] + str(epochs[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    best_index = np.argmax(acc_map['personalized'])
+    return epochs, acc_map, best_index
 
 def main():
     output_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "model", "model.pt")
@@ -147,22 +300,142 @@ def main():
     parser.add_argument("--model", choices=[x.value for x in list(mod.ConfigType)], default="cnn-trad-pool2", type=str)
     config, _ = parser.parse_known_args()
 
-    global_config = dict(no_cuda=False, n_epochs=500, lr=[0.001], schedule=[np.inf], batch_size=64, dev_every=10, seed=0,
-        use_nesterov=False, input_file="", output_file=output_file, gpu_no=1, cache_size=32768, momentum=0.9, weight_decay=0.00001)
+    global_config = dict(no_cuda=False,
+                         n_epochs=500,
+                         lr=[0.001],
+                         schedule=[np.inf],
+                         batch_size=64,
+                         dev_every=10,
+                         seed=0,
+                         use_nesterov=False,
+                         input_file="",
+                         output_file=output_file,
+                         gpu_no=1,
+                         cache_size=32768,
+                         momentum=0.9,
+                         weight_decay=0.00001,
+                         personalized=False)
     mod_cls = mod.find_model(config.model)
     builder = ConfigBuilder(
         mod.find_config(config.model),
-        mod.SpeechDataset.default_config(),
+        mod.PersonalizedSpeechDataset.default_config(),
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all"], default="all", type=str)
     config = builder.config_from_argparse(parser)
     config["model_class"] = mod_cls
     set_seed(config)
-    if config["type"] == "train":
-        train(config)
-    elif config["type"] == "eval":
-        evaluate(config)
+
+    config['model_dir'] = 'model/'
+
+    if config["personalized"]:
+        print("personalization")
+        if config["type"] == "train":
+            config['model_file_suffix'] = '{:%d_%H_%M}.pt'.format(datetime.datetime.now())
+            # retraining model
+            original_model_file_name = config['model_dir'] + 'original_' + config['model_file_suffix']
+            # original_model_file_name = "model/res8-narrow.pt"
+            config["output_file"] = original_model_file_name
+
+            print(TEXT_COLOR['WARNING'] + "\n~~ Training base model ~~" + TEXT_COLOR['ENDC'])
+            config["personalized"] = False
+            config["keep_original"] = False
+            train(config)
+
+            print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
+
+            config["input_file"] = original_model_file_name
+            evaluate_personalization(config)
+
+            # personalization experiment
+            config['original_model'] = original_model_file_name
+
+            print('experiment type : ', config["exp_type"])
+
+            if config["exp_type"] == "all":
+                data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
+                print('datasize - ', data_size)
+                print(data_size_acc_map['original'])
+                print(data_size_acc_map['mixed'])
+                print(data_size_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+
+                lr, lr_acc_map, best_lr_index = evaluate_data_size(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best data size is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
+                print('datasize - ', lr)
+                print(lr_acc_map['original'])
+                print(lr_acc_map['mixed'])
+                print(lr_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+
+                epochs, epochs_acc_map, best_epochs_index = evaluate_data_size(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
+                print('datasize - ', epochs)
+                print(epochs_acc_map['original'])
+                print(epochs_acc_map['mixed'])
+                print(epochs_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+                print(TEXT_COLOR['FAIL'])
+
+
+                print("\nsummary :")
+                print("best datasize :" + str(data_size[best_data_size_index]))
+                print("best epcohs :" + str(epochs[best_epochs_index]))
+                print("best lr :" + str(lr[best_lr_index]))
+                print(TEXT_COLOR['ENDC'])
+
+            elif config["exp_type"] == "data_size":
+                data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
+                print('datasize - ', data_size)
+                print(data_size_acc_map['original'])
+                print(data_size_acc_map['mixed'])
+                print(data_size_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+            elif config["exp_type"] == "lr":
+                lr, lr_acc_map, best_lr_index = evaluate_lr(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
+                print('datasize - ', lr)
+                print(lr_acc_map['original'])
+                print(lr_acc_map['mixed'])
+                print(lr_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+            elif config["exp_type"] == "epochs":
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
+                print('datasize - ', epochs)
+                print(epochs_acc_map['original'])
+                print(epochs_acc_map['mixed'])
+                print(epochs_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+        elif config["type"] == "eval":
+            print('config - ', config)
+            evaluate_personalization(config)
+    else:
+        if config["type"] == "train":
+            train(config)
+        elif config["type"] == "eval":
+            evaluate(config)
 
 if __name__ == "__main__":
     main()

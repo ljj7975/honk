@@ -293,6 +293,7 @@ class SpeechDataset(data.Dataset):
 
     @classmethod
     def splits(cls, config):
+        # print("original dataset")
         folder = config["data_folder"]
         wanted_words = config["wanted_words"]
         unknown_prob = config["unknown_prob"]
@@ -354,6 +355,265 @@ class SpeechDataset(data.Dataset):
         test_cfg = ChainMap(dict(bg_noise_files=bg_noise_files, noise_prob=0), config)
         datasets = (cls(sets[0], DatasetType.TRAIN, train_cfg), cls(sets[1], DatasetType.DEV, test_cfg),
                 cls(sets[2], DatasetType.TEST, test_cfg))
+        return datasets
+
+    def __getitem__(self, index):
+        if index >= len(self.audio_labels):
+            return self.preprocess(None, silence=True), 0
+        return self.preprocess(self.audio_files[index]), self.audio_labels[index]
+
+    def __len__(self):
+        return len(self.audio_labels) + self.n_silence
+
+class PersonalizedSpeechDataset(data.Dataset):
+    LABEL_SILENCE = "__silence__"
+    LABEL_UNKNOWN = "__unknown__"
+    def __init__(self, data, personalized_data, set_type, config):
+        super().__init__()
+        self.set_type = set_type
+
+        # replace part of original dataset with personalized dataset
+        if config["keep_original"]:
+            words = {i+2: [] for i, word in enumerate(config['wanted_words'])}
+            words.update({0:[], 1:[]})
+
+            remaining = 0
+            items = list(personalized_data.items())
+            random.Random(0).shuffle(items)
+            for key, value in items:
+                words[value].append(key)
+                remaining += 1
+
+            self.audio_files = list(data.keys())
+            self.audio_labels = list(data.values())
+
+            for i, label in enumerate(self.audio_labels):
+                if len(words[label]) > 0:
+                    self.audio_files[i] = words[label].pop()
+                    remaining -= 1
+                if remaining == 0:
+                    break
+        else:
+            combined = list(zip(personalized_data.keys(), personalized_data.values()))
+            random.Random(0).shuffle(combined)
+
+            files, labels = zip(*combined)
+
+            self.audio_files = list(files)
+            self.audio_labels = list(labels)
+
+            if self.set_type == DatasetType.TRAIN:
+                self.audio_files, self.audio_labels = self._trim_data_per_word(self.audio_files, self.audio_labels, config)
+
+        config["bg_noise_files"] = list(filter(lambda x: x.endswith("wav"), config.get("bg_noise_files", [])))
+        self.bg_noise_audio = [librosa.core.load(file, sr=16000)[0] for file in config["bg_noise_files"]]
+        self.unknown_prob = config["unknown_prob"]
+        self.silence_prob = config["silence_prob"]
+        self.noise_prob = config["noise_prob"]
+        self.n_dct = config["n_dct_filters"]
+        self.input_length = config["input_length"]
+        self.timeshift_ms = config["timeshift_ms"]
+        self.filters = librosa.filters.dct(config["n_dct_filters"], config["n_mels"])
+        self.n_mels = config["n_mels"]
+        self._audio_cache = SimpleCache(config["cache_size"])
+        self._file_cache = SimpleCache(config["cache_size"])
+        n_unk = len(list(filter(lambda x: x == 1, self.audio_labels)))
+        self.n_silence = int(self.silence_prob * (len(self.audio_labels) - n_unk))
+
+    @staticmethod
+    def default_config():
+        config = {}
+        config["group_speakers_by_id"] = True
+        config["silence_prob"] = 0.1
+        config["noise_prob"] = 0.8
+        config["n_dct_filters"] = 40
+        config["input_length"] = 16000
+        config["n_mels"] = 40
+        config["timeshift_ms"] = 100
+        config["unknown_prob"] = 0.1
+        config["train_pct"] = 80
+        config["dev_pct"] = 10
+        config["test_pct"] = 10
+        config["wanted_words"] = ["command", "random"]
+        config["data_folder"] = "/media/brandon/SSD/data/speech_dataset"
+        config["personalized_data_folder"] = "/media/brandon/SSD/data/personalized_speech_dataset"
+        config["keep_original"] = True
+        config["size_per_word"] = 80
+        return config
+
+    def _trim_data_per_word(self, audio_files, audio_labels, config):
+        counter = {i+2: 0 for i, word in enumerate(config['wanted_words'])}
+        counter.update({0:0, 1:0})
+
+        new_audio_files = []
+        new_audio_labels = []
+
+        for file, label in zip(audio_files, audio_labels):
+            if counter[label] < config['size_per_word']:
+                new_audio_files.append(file)
+                new_audio_labels.append(label)
+
+        return new_audio_files, new_audio_labels
+
+    def _timeshift_audio(self, data):
+        shift = (16000 * self.timeshift_ms) // 1000
+        shift = random.randint(-shift, shift)
+        a = -min(0, shift)
+        b = max(0, shift)
+        data = np.pad(data, (a, b), "constant")
+        return data[:len(data) - a] if a else data[b:]
+
+    def preprocess(self, example, silence=False):
+        if silence:
+            example = "__silence__"
+        if random.random() < 0.7:
+            try:
+                return self._audio_cache[example]
+            except KeyError:
+                pass
+        in_len = self.input_length
+        if self.bg_noise_audio:
+            bg_noise = random.choice(self.bg_noise_audio)
+            a = random.randint(0, len(bg_noise) - in_len - 1)
+            bg_noise = bg_noise[a:a + in_len]
+        else:
+            bg_noise = np.zeros(in_len)
+
+        if silence:
+            data = np.zeros(in_len, dtype=np.float32)
+        else:
+            file_data = self._file_cache.get(example)
+            data = librosa.core.load(example, sr=16000)[0] if file_data is None else file_data
+            self._file_cache[example] = data
+        data = np.pad(data, (0, max(0, in_len - len(data))), "constant")
+        if self.set_type == DatasetType.TRAIN:
+            data = self._timeshift_audio(data)
+
+        if random.random() < self.noise_prob or silence:
+            a = random.random() * 0.1
+            data = np.clip(a * bg_noise + data, -1, 1)
+        data = torch.from_numpy(preprocess_audio(data, self.n_mels, self.filters))
+        self._audio_cache[example] = data
+        return data
+
+    @classmethod
+    def splits(cls, config):
+        # if config["keep_original"]:
+        #     print("personalized data with original data")
+        # else:
+        #     print("personalized data without original data")
+        folder = config["data_folder"]
+        wanted_words = config["wanted_words"]
+        unknown_prob = config["unknown_prob"]
+        train_pct = config["train_pct"]
+        dev_pct = config["dev_pct"]
+        test_pct = config["test_pct"]
+
+        words = {word: i + 2 for i, word in enumerate(wanted_words)}
+        words.update({cls.LABEL_SILENCE:0, cls.LABEL_UNKNOWN:1})
+        sets = [{}, {}, {}]
+        unknowns = [0] * 3
+        bg_noise_files = []
+        unknown_files = []
+
+        for folder_name in os.listdir(folder):
+            path_name = os.path.join(folder, folder_name)
+            is_bg_noise = False
+            if os.path.isfile(path_name):
+                continue
+            if folder_name in words:
+                label = words[folder_name]
+            elif folder_name == "_background_noise_":
+                is_bg_noise = True
+            else:
+                label = words[cls.LABEL_UNKNOWN]
+
+            for filename in os.listdir(path_name):
+                wav_name = os.path.join(path_name, filename)
+                if is_bg_noise and os.path.isfile(wav_name):
+                    bg_noise_files.append(wav_name)
+                    continue
+                elif label == words[cls.LABEL_UNKNOWN]:
+                    unknown_files.append(wav_name)
+                    continue
+                if config["group_speakers_by_id"] and "_nohash_" in filename:
+                    hashname = re.sub(r"_nohash_.*$", "", filename)
+                else:
+                    hashname = filename
+                max_no_wavs = 2**27 - 1
+                bucket = int(hashlib.sha1(hashname.encode()).hexdigest(), 16)
+                bucket = (bucket % (max_no_wavs + 1)) * (100. / max_no_wavs)
+                if bucket < dev_pct:
+                    tag = DatasetType.DEV
+                elif bucket < test_pct + dev_pct:
+                    tag = DatasetType.TEST
+                else:
+                    tag = DatasetType.TRAIN
+                sets[tag.value][wav_name] = label
+
+        for tag in range(len(sets)):
+            unknowns[tag] = int(unknown_prob * len(sets[tag]))
+        random.Random(0).shuffle(unknown_files)
+        a = 0
+        for i, dataset in enumerate(sets):
+            b = a + unknowns[i]
+            unk_dict = {u: words[cls.LABEL_UNKNOWN] for u in unknown_files[a:b]}
+            dataset.update(unk_dict)
+            a = b
+
+        # process personalized audio creating its own dataset
+        personalized_folder = config["personalized_data_folder"]
+        # print("loading personalized data ", personalized_folder)
+
+        personalized_sets = [{}, {}, {}]
+        personalized_unknown_files = []
+        personalized_unknowns = [0] * 3
+
+        for folder_name in os.listdir(personalized_folder):
+            path_name = os.path.join(personalized_folder, folder_name)
+            if os.path.isfile(path_name):
+                continue
+            if folder_name in words:
+                label = words[folder_name]
+            else:
+                label = words[cls.LABEL_UNKNOWN]
+
+            data_list = os.listdir(path_name)
+            num_audio = len(data_list)
+
+            for index, filename in enumerate(data_list):
+                wav_name = os.path.join(path_name, filename)
+
+                if label == words[cls.LABEL_UNKNOWN]:
+                    personalized_unknown_files.append(wav_name)
+                    continue
+
+                bucket = (int(filename[:1]) - 1) * 10
+                if bucket < dev_pct:
+                    tag = DatasetType.DEV
+                elif bucket < test_pct + dev_pct:
+                    tag = DatasetType.TEST
+                else:
+                    tag = DatasetType.TRAIN
+
+                personalized_sets[tag.value][wav_name] = label
+
+        for tag in range(len(personalized_sets)):
+            personalized_unknowns[tag] = int(unknown_prob * len(personalized_sets[tag]))
+        random.Random(0).shuffle(personalized_unknown_files)
+
+        a = 0
+        for i, dataset in enumerate(personalized_sets):
+            b = a + personalized_unknowns[i]
+            unk_dict = {u: words[cls.LABEL_UNKNOWN] for u in personalized_unknown_files[a:b]}
+            dataset.update(unk_dict)
+            a = b
+
+        train_cfg = ChainMap(dict(bg_noise_files=bg_noise_files), config)
+        test_cfg = ChainMap(dict(bg_noise_files=bg_noise_files, noise_prob=0), config)
+        datasets = (cls(sets[0], personalized_sets[0], DatasetType.TRAIN, train_cfg),
+                cls(sets[1], personalized_sets[1], DatasetType.DEV, test_cfg),
+                cls(sets[2], personalized_sets[2], DatasetType.TEST, test_cfg))
         return datasets
 
     def __getitem__(self, index):
