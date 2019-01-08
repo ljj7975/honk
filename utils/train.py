@@ -164,21 +164,21 @@ def train(config):
 def evaluate_personalization(config, acc_map=None):
     config["personalized"] = False
     config["keep_original"] = False
-    acc = evaluate(config)
+    acc = round(evaluate(config), 4)
     print("\n< accuracy on original data : ", acc)
     if acc_map:
         acc_map['original'].append(acc)
 
     config["personalized"] = True
     config["keep_original"] = True
-    acc = evaluate(config)
+    acc = round(evaluate(config), 4)
     print("\n< accuracy on mixed personalized data : ", acc)
     if acc_map:
         acc_map['mixed'].append(acc)
     
     config["personalized"] = True
     config["keep_original"] = False
-    acc = evaluate(config)
+    acc = round(evaluate(config), 4)
     print("\n< accuracy on pure personalized data : ", acc)
     if acc_map:
         acc_map['personalized'].append(acc)
@@ -226,7 +226,10 @@ def evaluate_data_size(config):
 
 def evaluate_lr(config):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (learning rate) ~~" + TEXT_COLOR['ENDC'])
-    config["n_epochs"] = 10
+
+    # 2 seems to be enough to see the difference
+    # config["n_epochs"] = 10
+    config["n_epochs"] = 2
     config["size_per_word"] = 80
 
     lr = []
@@ -271,7 +274,7 @@ def evaluate_epochs(config):
         'personalized':[]
     }
 
-    for i in range(2, 21, 2):
+    for i in range(2, 41, 3):
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
         new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
@@ -346,7 +349,18 @@ def main():
             print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
 
             config["input_file"] = original_model_file_name
-            evaluate_personalization(config)
+            pre_trained_acc_map = {
+                'original':[],
+                'mixed':[],
+                'personalized':[]
+            }
+
+            evaluate_personalization(config, pre_trained_acc_map)
+            print(TEXT_COLOR['OKGREEN'])
+            print('original - ', pre_trained_acc_map['original'])
+            print('mixed - ', pre_trained_acc_map['mixed'])
+            print('personalized - ', pre_trained_acc_map['personalized'])
+            print(TEXT_COLOR['ENDC'])
 
             # personalization experiment
             config['original_model'] = original_model_file_name
@@ -356,43 +370,50 @@ def main():
             if config["exp_type"] == "all":
                 data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(config)
 
+                best_data_size = data_size[best_data_size_index]
+                best_data_size_acc = data_size_acc_map['personalized'][best_data_size_index]
+
                 print(TEXT_COLOR['OKGREEN'])
-                print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
+                print("\n~~~~~~~~~~ best data size is " + str(best_data_size) + " with acc of " + str(best_data_size_acc) + "~~~~~~")
                 print('datasize - ', data_size)
-                print(data_size_acc_map['original'])
-                print(data_size_acc_map['mixed'])
-                print(data_size_acc_map['personalized'])
+                print('original - ', data_size_acc_map['original'])
+                print('mixed - ', data_size_acc_map['mixed'])
+                print('personalized - ', data_size_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
 
-                lr, lr_acc_map, best_lr_index = evaluate_data_size(config)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(config)
+
+                best_lr = lr[best_lr_index]
+                best_lr_acc = lr_acc_map['personalized'][best_lr_index]
 
                 print(TEXT_COLOR['OKGREEN'])
-                print("\n~~~~~~~~~~ best data size is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
-                print('datasize - ', lr)
-                print(lr_acc_map['original'])
-                print(lr_acc_map['mixed'])
-                print(lr_acc_map['personalized'])
+                print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
+                print('lr - ', lr)
+                print('original - ', lr_acc_map['original'])
+                print('mixed - ', lr_acc_map['mixed'])
+                print('personalized - ', lr_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
 
-                epochs, epochs_acc_map, best_epochs_index = evaluate_data_size(config)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config)
+
+                best_epochs = epochs[best_epochs_index]
+                best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
 
                 print(TEXT_COLOR['OKGREEN'])
-                print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
-                print('datasize - ', epochs)
-                print(epochs_acc_map['original'])
-                print(epochs_acc_map['mixed'])
-                print(epochs_acc_map['personalized'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
+                print('epochs - ', epochs)
+                print('original - ', epochs_acc_map['original'])
+                print('mixed - ', epochs_acc_map['mixed'])
+                print('personalized - ', epochs_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
                 print(TEXT_COLOR['FAIL'])
-
-
                 print("\nsummary :")
-                print("best datasize :" + str(data_size[best_data_size_index]))
-                print("best epcohs :" + str(epochs[best_epochs_index]))
-                print("best lr :" + str(lr[best_lr_index]))
+                print("best datasize :", best_data_size, best_data_size_acc)
+                print("best lr :", best_lr, best_lr_acc)
+                print("best epcohs :", best_epochs, best_epochs_acc)
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "data_size":
@@ -401,9 +422,9 @@ def main():
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
                 print('datasize - ', data_size)
-                print(data_size_acc_map['original'])
-                print(data_size_acc_map['mixed'])
-                print(data_size_acc_map['personalized'])
+                print('original - ', data_size_acc_map['original'])
+                print('mixed - ', data_size_acc_map['mixed'])
+                print('personalized - ', data_size_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "lr":
@@ -411,10 +432,10 @@ def main():
 
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
-                print('datasize - ', lr)
-                print(lr_acc_map['original'])
-                print(lr_acc_map['mixed'])
-                print(lr_acc_map['personalized'])
+                print('lr - ', lr)
+                print('original - ', lr_acc_map['original'])
+                print('mixed - ', lr_acc_map['mixed'])
+                print('personalized - ', lr_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "epochs":
@@ -422,10 +443,10 @@ def main():
 
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
-                print('datasize - ', epochs)
-                print(epochs_acc_map['original'])
-                print(epochs_acc_map['mixed'])
-                print(epochs_acc_map['personalized'])
+                print('epochs - ', epochs)
+                print('original - ', epochs_acc_map['original'])
+                print('mixed - ', epochs_acc_map['mixed'])
+                print('personalized - ', epochs_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
         elif config["type"] == "eval":
