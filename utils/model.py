@@ -14,6 +14,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data as data
 
+from . import data_collector as dc
+
+import datetime
 from .manage_audio import preprocess_audio
 
 class SimpleCache(dict):
@@ -77,7 +80,7 @@ class SerializableModule(nn.Module):
         torch.save(self.state_dict(), filename)
 
     def load(self, filename):
-        self.load_state_dict(torch.load(filename, map_location=lambda storage, loc: storage))
+        self.load_state_dict(torch.load(filename, map_location=lambda storage, loc: storage), strict=False)
 
 
 class ScalingLayer(nn.Module):
@@ -117,10 +120,10 @@ class SpeechResModel(SerializableModule):
         self.n_layers = n_layers = config["n_layers"]
         dilation = config["use_dilation"]
         if dilation:
-            self.convs = [nn.Conv2d(n_maps, n_maps, (3, 3), padding=int(2**(i // 3)), dilation=int(2**(i // 3)), 
+            self.convs = [nn.Conv2d(n_maps, n_maps, (3, 3), padding=int(2**(i // 3)), dilation=int(2**(i // 3)),
                 bias=False) for i in range(n_layers)]
         else:
-            self.convs = [nn.Conv2d(n_maps, n_maps, (3, 3), padding=1, dilation=1, 
+            self.convs = [nn.Conv2d(n_maps, n_maps, (3, 3), padding=1, dilation=1,
                 bias=False) for _ in range(n_layers)]
         for i, conv in enumerate(self.convs):
             self.add_module("bn{}".format(i + 1), nn.BatchNorm2d(n_maps, affine=False))
@@ -216,7 +219,7 @@ class SpeechModel(SerializableModule):
             conv_net_size = x.view(1, -1).size(1)
             last_size = conv_net_size
         if not tf_variant:
-            self.lin = nn.Linear(conv_net_size, 32) 
+            self.lin = nn.Linear(conv_net_size, 32)
 
         if "dnn1_size" in config:
             dnn1_size = config["dnn1_size"]
@@ -255,7 +258,7 @@ class SpeechModel(SerializableModule):
             x = self.dnn1(x)
             if not self.tf_variant:
                 x = F.relu(x)
-            x = self.dropout(x)        
+            x = self.dropout(x)
         if hasattr(self, "dnn2"):
             x = self.dnn2(x)
             x = self.dropout(x)
@@ -289,6 +292,8 @@ class SpeechDataset(data.Dataset):
         n_unk = len(list(filter(lambda x: x == 1, self.audio_labels)))
         self.n_silence = int(self.silence_prob * (len(self.audio_labels) - n_unk))
 
+        self.data_collector = dc.DataCollector("mfcc computation", "ms")
+
     @staticmethod
     def default_config():
         config = {}
@@ -321,11 +326,11 @@ class SpeechDataset(data.Dataset):
     def preprocess(self, example, silence=False):
         if silence:
             example = "__silence__"
-        if random.random() < 0.7:
-            try:
-                return self._audio_cache[example]
-            except KeyError:
-                pass
+        # if random.random() < 0.7:
+        #     try:
+        #         return self._audio_cache[example]
+        #     except KeyError:
+        #         pass
         in_len = self.input_length
         if self.bg_noise_audio:
             bg_noise = random.choice(self.bg_noise_audio)
@@ -347,7 +352,12 @@ class SpeechDataset(data.Dataset):
         if random.random() < self.noise_prob or silence:
             a = random.random() * 0.1
             data = np.clip(a * bg_noise + data, -1, 1)
+
+        in_time = datetime.datetime.now()
         data = torch.from_numpy(preprocess_audio(data, self.n_mels, self.filters))
+        out_time = datetime.datetime.now()
+        delta_time = out_time - in_time
+        self.data_collector.insert(delta_time.microseconds / 1000)
         self._audio_cache[example] = data
         return data
 

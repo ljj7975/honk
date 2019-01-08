@@ -3,6 +3,7 @@ import argparse
 import os
 import random
 import sys
+import datetime
 
 from torch.autograd import Variable
 import numpy as np
@@ -11,6 +12,7 @@ import torch.nn as nn
 import torch.utils.data as data
 
 from . import model as mod
+from . import data_collector as dc
 
 class ConfigBuilder(object):
     def __init__(self, *default_configs):
@@ -40,7 +42,7 @@ def print_eval(name, scores, labels, loss, end="\n"):
     batch_size = labels.size(0)
     accuracy = (torch.max(scores, 1)[1].view(batch_size).data == labels.data).float().sum() / batch_size
     loss = loss.item()
-    print("{} accuracy: {:>5}, loss: {:<25}".format(name, accuracy, loss), end=end)
+    # print("{} accuracy: {:>5}, loss: {:<25}".format(name, accuracy, loss), end=end)
     return accuracy
 
 def set_seed(config):
@@ -51,14 +53,43 @@ def set_seed(config):
         torch.cuda.manual_seed(seed)
     random.seed(seed)
 
+
+def measure(config, model, data_loader, collector):
+    criterion = nn.CrossEntropyLoss()
+    results = []
+    total = 0
+
+    for model_in, labels in data_loader:
+        model_in = Variable(model_in, requires_grad=False)
+        if not config["no_cuda"]:
+            model_in = model_in.cuda()
+            labels = labels.cuda()
+        in_time = datetime.datetime.now()
+        scores = model(model_in)
+        out_time = datetime.datetime.now()
+        delta_time = out_time - in_time
+        collector.insert(delta_time.microseconds / 1000)
+        labels = Variable(labels, requires_grad=False)
+        loss = criterion(scores, labels)
+        results.append(print_eval("test", scores, labels, loss) * model_in.size(0))
+        total += model_in.size(0)
+    print("final test accuracy: {}".format(sum(results) / total))
+
+
 def evaluate(config, model=None, test_loader=None):
     if not test_loader:
-        _, _, test_set = mod.SpeechDataset.splits(config)
-        test_loader = data.DataLoader(test_set, batch_size=len(test_set))
+        # _, _, test_set = mod.SpeechDataset.splits(config)
+        # test_loader = data.DataLoader(test_set, batch_size=len(test_set))
+        _, _, warmup_set = mod.SpeechDataset.splits(config)
+        _, val_set, test_set = mod.SpeechDataset.splits(config)
+        warmup_loader = data.DataLoader(warmup_set, batch_size=500)
+        test_loader = data.DataLoader(test_set, batch_size=1)
+        val_loader = data.DataLoader(val_set, batch_size=1)
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
     if not model:
         model = config["model_class"](config)
+        model.prune(config["prune_pct"], freeze=True)
         model.load(config["input_file"])
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
@@ -67,22 +98,30 @@ def evaluate(config, model=None, test_loader=None):
     if config["type"] == "eval":
         print(f"{sum(p.numel() for p in model.parameters())} parameters")
         if config["prune_pct"]:
-            model.prune(config["prune_pct"], freeze=True)
             print(f"{sum(p.numel() for p in model.parameters())} parameters after slimming")
-    criterion = nn.CrossEntropyLoss()
-    results = []
-    total = 0
-    for model_in, labels in test_loader:
-        model_in = Variable(model_in, requires_grad=False)
-        if not config["no_cuda"]:
-            model_in = model_in.cuda()
-            labels = labels.cuda()
-        scores = model(model_in)
-        labels = Variable(labels, requires_grad=False)
-        loss = criterion(scores, labels)
-        results.append(print_eval("test", scores, labels, loss) * model_in.size(0))
-        total += model_in.size(0)
-    print("final test accuracy: {}".format(sum(results) / total))
+
+    temp_collector = dc.DataCollector("temp", "ms")
+    measure(config, model, warmup_loader, temp_collector)
+
+    print('evaluation on validation set')
+    val_collector = dc.DataCollector("validation evaluation time", "ms")
+    measure(config, model, val_loader, val_collector)
+    val_set.data_collector.print_summary();
+    val_collector.print_summary();
+
+    val_collector.combine(val_set.data_collector);
+    val_collector.print_summary();
+
+
+    print('evaluation on test set')
+    test_collector = dc.DataCollector("test evaluation time", "ms")
+    measure(config, model, test_loader, test_collector)
+    test_set.data_collector.print_summary();
+    test_collector.print_summary();
+
+    test_collector.combine(test_set.data_collector);
+    test_collector.print_summary();
+
 
 def train(config):
     train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
@@ -166,6 +205,8 @@ def main():
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
     config = builder.config_from_argparse(parser)
     config["model_class"] = mod_cls
+    config["mode"] = "eval"
+
     set_seed(config)
     if config["type"] == "train":
         train(config)
