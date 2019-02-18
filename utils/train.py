@@ -70,7 +70,12 @@ def evaluate(config, model=None, test_loader=None):
             _, _, test_set = mod.PersonalizedSpeechDataset.splits(config)
         else:
             _, _, test_set = mod.SpeechDataset.splits(config)
-        test_loader = data.DataLoader(test_set, batch_size=len(test_set))
+
+        test_loader = data.DataLoader(
+            test_set,
+            batch_size=len(test_set),
+            shuffle=True,
+            collate_fn=test_set.collate_fn)
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
     if not model:
@@ -83,6 +88,7 @@ def evaluate(config, model=None, test_loader=None):
     criterion = nn.CrossEntropyLoss()
     results = []
     total = 0
+    
     for model_in, labels in test_loader:
         model_in = Variable(model_in, requires_grad=False)
         if not config["no_cuda"]:

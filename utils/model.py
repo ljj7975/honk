@@ -427,12 +427,12 @@ class PersonalizedSpeechDataset(data.Dataset):
         self.n_dct = config["n_dct_filters"]
         self.input_length = config["input_length"]
         self.timeshift_ms = config["timeshift_ms"]
-        self.filters = librosa.filters.dct(config["n_dct_filters"], config["n_mels"])
-        self.n_mels = config["n_mels"]
         self._audio_cache = SimpleCache(config["cache_size"])
         self._file_cache = SimpleCache(config["cache_size"])
         n_unk = len(list(filter(lambda x: x == 1, self.audio_labels)))
         self.n_silence = int(self.silence_prob * (len(self.audio_labels) - n_unk))
+        self.audio_processor = AudioPreprocessor(n_mels=config["n_mels"], n_dct_filters=config["n_dct_filters"], hop_ms=10)
+        self.audio_preprocess_type = config["audio_preprocess_type"]
 
     @staticmethod
     def default_config():
@@ -456,6 +456,20 @@ class PersonalizedSpeechDataset(data.Dataset):
         config["audio_preprocess_type"] = "MFCCs"
         return config
 
+    def collate_fn(self, data):
+        x = None
+        y = []
+        for audio_data, label in data:
+            if self.audio_preprocess_type == "MFCCs":
+                audio_tensor = torch.from_numpy(self.audio_processor.compute_mfccs(audio_data))
+                x = audio_tensor if x is None else torch.cat((x, audio_tensor), 0)
+            elif self.audio_preprocess_type == "PCEN":
+                audio_tensor = torch.from_numpy(np.expand_dims(audio_data, axis=0))
+                audio_tensor = self.audio_processor.compute_pcen(audio_tensor)
+                x = audio_tensor if x is None else torch.cat((x, audio_tensor), 0)
+            y.append(label)
+        return x, torch.tensor(y)
+
     def _trim_data_per_word(self, audio_files, audio_labels, config):
         counter = {i+2: 0 for i, word in enumerate(config['wanted_words'])}
         counter.update({0:0, 1:0})
@@ -478,7 +492,7 @@ class PersonalizedSpeechDataset(data.Dataset):
         data = np.pad(data, (a, b), "constant")
         return data[:len(data) - a] if a else data[b:]
 
-    def preprocess(self, example, silence=False):
+    def load_audio(self, example, silence=False):
         if silence:
             example = "__silence__"
         if random.random() < 0.7:
@@ -507,7 +521,7 @@ class PersonalizedSpeechDataset(data.Dataset):
         if random.random() < self.noise_prob or silence:
             a = random.random() * 0.1
             data = np.clip(a * bg_noise + data, -1, 1)
-        data = torch.from_numpy(preprocess_audio(data, self.n_mels, self.filters))
+
         self._audio_cache[example] = data
         return data
 
@@ -633,8 +647,8 @@ class PersonalizedSpeechDataset(data.Dataset):
 
     def __getitem__(self, index):
         if index >= len(self.audio_labels):
-            return self.preprocess(None, silence=True), 0
-        return self.preprocess(self.audio_files[index]), self.audio_labels[index]
+            return self.load_audio(None, silence=True), 0
+        return self.load_audio(self.audio_files[index]), self.audio_labels[index]
 
     def __len__(self):
         return len(self.audio_labels) + self.n_silence
