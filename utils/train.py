@@ -349,15 +349,17 @@ def main():
         print("personalization")
         if config["type"] == "train":
             config['model_file_suffix'] = '{:%d_%H_%M}.pt'.format(datetime.datetime.now())
-            # retraining model
-            original_model_file_name = config['model_dir'] + 'original_' + config['model_file_suffix']
-            # original_model_file_name = "model/res8-narrow.pt"
-            config["output_file"] = original_model_file_name
+            # retraining base model
+            # original_model_file_name = config['model_dir'] + 'original_' + config['model_file_suffix']
+            # config["output_file"] = original_model_file_name
 
-            print(TEXT_COLOR['WARNING'] + "\n~~ Training base model ~~" + TEXT_COLOR['ENDC'])
-            config["personalized"] = False
-            config["keep_original"] = False
-            train(config)
+            # print(TEXT_COLOR['WARNING'] + "\n~~ Training base model ~~" + TEXT_COLOR['ENDC'])
+            # config["personalized"] = False
+            # config["keep_original"] = False
+            # train(config)
+
+            # reusing pretrained base model
+            original_model_file_name = "model/res8-narrow.pt"
 
             print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
 

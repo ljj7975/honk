@@ -450,9 +450,10 @@ class PersonalizedSpeechDataset(data.Dataset):
         config["test_pct"] = 10
         config["wanted_words"] = ["command", "random"]
         config["data_folder"] = "/media/brandon/SSD/data/speech_dataset"
-        config["personalized_data_folder"] = "/media/brandon/SSD/data/personalized_speech_dataset"
+        config["personalized_data_folder"] = "/media/brandon/SSD/data/personalized_speech_dataset/brandon"
         config["keep_original"] = True
         config["size_per_word"] = 80
+        config["audio_preprocess_type"] = "MFCCs"
         return config
 
     def _trim_data_per_word(self, audio_files, audio_labels, config):
