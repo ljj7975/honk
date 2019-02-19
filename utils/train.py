@@ -64,7 +64,7 @@ def set_seed(config):
         torch.cuda.manual_seed(seed)
     random.seed(seed)
 
-def evaluate(config, model=None, test_loader=None):
+def evaluate(config, test_loader=None, model=None):
     if not test_loader:
         if config["personalized"]:
             _, _, test_set = mod.PersonalizedSpeechDataset.splits(config)
@@ -88,7 +88,7 @@ def evaluate(config, model=None, test_loader=None):
     criterion = nn.CrossEntropyLoss()
     results = []
     total = 0
-    
+
     for model_in, labels in test_loader:
         model_in = Variable(model_in, requires_grad=False)
         if not config["no_cuda"]:
@@ -103,11 +103,33 @@ def evaluate(config, model=None, test_loader=None):
     print("final test accuracy: {}".format(accuracy))
     return accuracy.item()
 
-def train(config):
-    if config["personalized"]:
-        train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+def train(config, data_loaders=None):
+    if not data_loaders:
+        if config["personalized"]:
+            train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+        else:
+            train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
+
+        train_loader = data.DataLoader(
+            train_set,
+            batch_size=config["batch_size"],
+            shuffle=True, drop_last=True,
+            collate_fn=train_set.collate_fn)
+        dev_loader = data.DataLoader(
+            dev_set,
+            batch_size=min(len(dev_set), 16),
+            shuffle=True,
+            collate_fn=dev_set.collate_fn)
+        test_loader = data.DataLoader(
+            test_set,
+            batch_size=min(len(test_set), 16),
+            shuffle=True,
+            collate_fn=test_set.collate_fn)
     else:
-        train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
+        train_loader = data_loaders['train_loader']
+        dev_loader = data_loaders['dev_loader']
+        test_loader = data_loaders['test_loader']
+
     model = config["model_class"](config)
     if config["input_file"]:
         model.load(config["input_file"])
@@ -120,22 +142,6 @@ def train(config):
     sched_idx = 0
     criterion = nn.CrossEntropyLoss()
     max_acc = 0
-
-    train_loader = data.DataLoader(
-        train_set,
-        batch_size=config["batch_size"],
-        shuffle=True, drop_last=True,
-        collate_fn=train_set.collate_fn)
-    dev_loader = data.DataLoader(
-        dev_set,
-        batch_size=min(len(dev_set), 16),
-        shuffle=True,
-        collate_fn=dev_set.collate_fn)
-    test_loader = data.DataLoader(
-        test_set,
-        batch_size=min(len(test_set), 16),
-        shuffle=True,
-        collate_fn=test_set.collate_fn)
     step_no = 0
 
     for epoch_idx in range(config["n_epochs"]):
@@ -178,48 +184,51 @@ def train(config):
                 print("saving best model...")
                 max_acc = avg_acc
                 model.save(config["output_file"])
-    return evaluate(config, model, test_loader)
+    return evaluate(config, test_loader, model)
 
-def evaluate_personalization(config, acc_map=None):
+def evaluate_personalization(config, test_loader, acc_map=None):
+
     config["personalized"] = False
     config["keep_original"] = False
     acc = round(evaluate(config), 4)
-    print("\n< accuracy on original data : ", acc)
+    print("\n< accuracy on original data : ", acc, ">")
     if acc_map:
         acc_map['original'].append(acc)
 
-    config["personalized"] = True
-    config["keep_original"] = True
-    acc = round(evaluate(config), 4)
-    print("\n< accuracy on mixed personalized data : ", acc)
-    if acc_map:
-        acc_map['mixed'].append(acc)
+    # config["personalized"] = True
+    # config["keep_original"] = True
+    # acc = round(evaluate(config), 4)
+    # print("\n< accuracy on mixed personalized data : ", acc, ">")
+    # if acc_map:
+    #     acc_map['mixed'].append(acc)
     
     config["personalized"] = True
     config["keep_original"] = False
-    acc = round(evaluate(config), 4)
-    print("\n< accuracy on pure personalized data : ", acc)
+    acc = round(evaluate(config, test_loader), 4)
+    print("\n< accuracy on pure personalized data : ", acc, ">")
     if acc_map:
         acc_map['personalized'].append(acc)
 
 def evaluate_data_size(config):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (size of personalized data set) ~~" + TEXT_COLOR['ENDC'])
 
-    # 2 seems to be enough to see the difference
-    # config["n_epochs"] = 10
-    config["n_epochs"] = 2
-    config["lr"] = [0.001]
-
     data_size = []
     acc_map = {
         'original':[],
-        'mixed':[],
+        # 'mixed':[],
         'personalized':[]
     }
 
-    # for i in range(10, 90, 10):
-    for i in range(0, 11):
+    for i in range(1, 11):
         config["size_per_word"] = i
+        train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+        datasets = {
+            "train_set": train_set,
+            "dev_set": dev_set,
+            "test_set": test_set
+        }
+        data_loaders = generate_data_loaders(config, datasets)
+
         data_size.append(config["size_per_word"])
         new_model_file_name = config['model_dir'] + 'datasize_' + str(config["size_per_word"]) + '_' + config['model_file_suffix']
         print("\n\n~~ Size per keyword : " + str(config["size_per_word"]) + " ~~")
@@ -227,38 +236,31 @@ def evaluate_data_size(config):
         config["input_file"] = config['original_model']
         config["output_file"] = new_model_file_name
 
-        if config["size_per_word"] == 0:
-            config["input_file"] = config['original_model']
-        else:
-            print("\n< train further only with personalized data >")
-            config["personalized"] = True
-            config["keep_original"] = False
-            train(config)
-            config["input_file"] = new_model_file_name
+        print("\n< train further only with personalized data >")
+        config["personalized"] = True
+        config["keep_original"] = False
+        train(config, data_loaders)
 
-        evaluate_personalization(config, acc_map)
+        config["input_file"] = new_model_file_name
+        evaluate_personalization(config, data_loaders['test_loader'], acc_map)
 
         print(TEXT_COLOR['WARNING'] + str(data_size[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return data_size, acc_map, best_index
 
-def evaluate_lr(config):
+def evaluate_lr(config, datasets):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (learning rate) ~~" + TEXT_COLOR['ENDC'])
-
-    # 2 seems to be enough to see the difference
-    # config["n_epochs"] = 10
-    config["n_epochs"] = 2
-    config["size_per_word"] = 80
 
     lr = []
     acc_map = {
         'original':[],
-        'mixed':[],
+        # 'mixed':[],
         'personalized':[]
     }
 
     for i in range(1, 5):
+        data_loaders = generate_data_loaders(config, datasets)
         config["lr"] = [round(0.1**i, i)]
         lr.append(config["lr"][0])
         new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
@@ -270,30 +272,28 @@ def evaluate_lr(config):
         print("\n< train further only with personalized data >")
         config["personalized"] = True
         config["keep_original"] = False
-        train(config)
+        train(config, data_loaders)
 
         config["input_file"] = new_model_file_name
-
-        evaluate_personalization(config, acc_map)
+        evaluate_personalization(config, data_loaders['test_loader'], acc_map)
 
         print(TEXT_COLOR['WARNING'] + str(lr[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return lr, acc_map, best_index
 
-def evaluate_epochs(config):
+def evaluate_epochs(config, datasets):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (epochs) ~~" + TEXT_COLOR['ENDC'])
-    config["lr"] = [0.001]
-    config["size_per_word"] = 80
 
     epochs = []
     acc_map = {
         'original':[],
-        'mixed':[],
+        # 'mixed':[],
         'personalized':[]
     }
 
-    for i in range(2, 41, 3):
+    for i in range(5, 100, 5):
+        data_loaders = generate_data_loaders(config, datasets)
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
         new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
@@ -305,16 +305,43 @@ def evaluate_epochs(config):
         print("\n< train further only with personalized data >")
         config["personalized"] = True
         config["keep_original"] = False
-        train(config)
+        train(config, data_loaders)
 
         config["input_file"] = new_model_file_name
-
-        evaluate_personalization(config, acc_map)
+        evaluate_personalization(config, data_loaders['test_loader'], acc_map)
 
         print(TEXT_COLOR['WARNING'] + str(epochs[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return epochs, acc_map, best_index
+
+def generate_data_loaders(config, datasets):
+    train_set = datasets["train_set"]
+    dev_set = datasets["dev_set"]
+    test_set = datasets["test_set"]
+
+    train_loader = data.DataLoader(
+        datasets["train_set"],
+        batch_size=config["batch_size"],
+        shuffle=True, drop_last=True,
+        collate_fn=train_set.collate_fn)
+    dev_loader = data.DataLoader(
+        datasets["dev_set"],
+        batch_size=min(len(dev_set), 16),
+        shuffle=True,
+        collate_fn=dev_set.collate_fn)
+    test_loader = data.DataLoader(
+        datasets["test_set"],
+        batch_size=min(len(test_set), 16),
+        shuffle=True,
+        collate_fn=test_set.collate_fn)
+
+    return {"train_loader":train_loader, "dev_loader":dev_loader, "test_loader":test_loader}
+
+def reset_config(config, size_per_word, lr, n_epochs):
+    config["size_per_word"] = size_per_word
+    config["lr"] = lr
+    config["n_epochs"] = n_epochs
 
 def main():
     output_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "model", "model.pt")
@@ -352,7 +379,12 @@ def main():
     config['model_dir'] = 'model/'
 
     if config["personalized"]:
-        print("personalization")
+        print("\npersonalization\n")
+
+        default_lr = [0.01]
+        default_size_per_word = 10
+        default_n_epochs = 30
+
         if config["type"] == "train":
             config['model_file_suffix'] = '{:%d_%H_%M}.pt'.format(datetime.datetime.now())
             # retraining base model
@@ -367,19 +399,38 @@ def main():
             # reusing pretrained base model
             original_model_file_name = "model/res8-narrow.pt"
 
+            reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+
+            print(TEXT_COLOR['OKGREEN'])
+            print("default size_per_word :", config["size_per_word"])
+            print("default lr :", config["lr"])
+            print("default n_epochs :", config["n_epochs"])
+            print(TEXT_COLOR['ENDC'])
+
+            config["personalized"] = True
+            config["keep_original"] = False
+            train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+            datasets = {
+                "train_set": train_set,
+                "dev_set": dev_set,
+                "test_set": test_set
+            }
+
             print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
 
             config["input_file"] = original_model_file_name
             pre_trained_acc_map = {
                 'original':[],
-                'mixed':[],
+                # 'mixed':[],
                 'personalized':[]
             }
 
-            evaluate_personalization(config, pre_trained_acc_map)
+            data_loaders = generate_data_loaders(config, datasets)
+
+            evaluate_personalization(config, data_loaders['test_loader'], pre_trained_acc_map)
             print(TEXT_COLOR['OKGREEN'])
             print('original - ', pre_trained_acc_map['original'])
-            print('mixed - ', pre_trained_acc_map['mixed'])
+            # print('mixed - ', pre_trained_acc_map['mixed'])
             print('personalized - ', pre_trained_acc_map['personalized'])
             print(TEXT_COLOR['ENDC'])
 
@@ -388,7 +439,9 @@ def main():
 
             print('experiment type : ', config["exp_type"])
 
+
             if config["exp_type"] == "all":
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
                 data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(config)
 
                 best_data_size = data_size[best_data_size_index]
@@ -398,12 +451,12 @@ def main():
                 print("\n~~~~~~~~~~ best data size is " + str(best_data_size) + " with acc of " + str(best_data_size_acc) + "~~~~~~")
                 print('datasize - ', data_size)
                 print('original - ', data_size_acc_map['original'])
-                print('mixed - ', data_size_acc_map['mixed'])
+                # print('mixed - ', data_size_acc_map['mixed'])
                 print('personalized - ', data_size_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
-
-                lr, lr_acc_map, best_lr_index = evaluate_lr(config)
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(config, datasets)
 
                 best_lr = lr[best_lr_index]
                 best_lr_acc = lr_acc_map['personalized'][best_lr_index]
@@ -412,12 +465,12 @@ def main():
                 print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
                 print('lr - ', lr)
                 print('original - ', lr_acc_map['original'])
-                print('mixed - ', lr_acc_map['mixed'])
+                # print('mixed - ', lr_acc_map['mixed'])
                 print('personalized - ', lr_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
-
-                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config)
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config, datasets)
 
                 best_epochs = epochs[best_epochs_index]
                 best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
@@ -426,7 +479,7 @@ def main():
                 print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
                 print('epochs - ', epochs)
                 print('original - ', epochs_acc_map['original'])
-                print('mixed - ', epochs_acc_map['mixed'])
+                # print('mixed - ', epochs_acc_map['mixed'])
                 print('personalized - ', epochs_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
@@ -438,41 +491,60 @@ def main():
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "data_size":
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
                 data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(config)
 
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
                 print('datasize - ', data_size)
                 print('original - ', data_size_acc_map['original'])
-                print('mixed - ', data_size_acc_map['mixed'])
+                # print('mixed - ', data_size_acc_map['mixed'])
                 print('personalized - ', data_size_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "lr":
-                lr, lr_acc_map, best_lr_index = evaluate_lr(config)
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(config, datasets)
 
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
                 print('lr - ', lr)
                 print('original - ', lr_acc_map['original'])
-                print('mixed - ', lr_acc_map['mixed'])
+                # print('mixed - ', lr_acc_map['mixed'])
                 print('personalized - ', lr_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
             elif config["exp_type"] == "epochs":
-                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config)
+                reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(config, datasets)
 
                 print(TEXT_COLOR['OKGREEN'])
                 print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
                 print('epochs - ', epochs)
                 print('original - ', epochs_acc_map['original'])
-                print('mixed - ', epochs_acc_map['mixed'])
+                # print('mixed - ', epochs_acc_map['mixed'])
                 print('personalized - ', epochs_acc_map['personalized'])
                 print(TEXT_COLOR['ENDC'])
 
         elif config["type"] == "eval":
-            print('config - ', config)
-            evaluate_personalization(config)
+            reset_config(config, default_size_per_word, default_lr, default_n_epochs)
+
+            train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+            datasets = {
+                "train_set": train_set,
+                "dev_set": dev_set,
+                "test_set": test_set
+            }
+
+            pre_trained_acc_map = {
+                'original':[],
+                # 'mixed':[],
+                'personalized':[]
+            }
+
+            data_loaders = generate_data_loaders(config, datasets)
+
+            evaluate_personalization(config, data_loaders['test_loader'], pre_trained_acc_map)
     else:
         if config["type"] == "train":
             train(config)

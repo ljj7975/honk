@@ -292,7 +292,10 @@ class SpeechDataset(data.Dataset):
             data = np.zeros(in_len, dtype=np.float32)
         else:
             file_data = self._file_cache.get(example)
-            data = librosa.core.load(example, sr=16000)[0] if file_data is None else file_data
+            try:
+                data = librosa.core.load(example, sr=16000)[0] if file_data is None else file_data
+            except Exception:
+                print('failed to load', example)
             self._file_cache[example] = data
         data = np.pad(data, (0, max(0, in_len - len(data))), "constant")
         if self.set_type == DatasetType.TRAIN:
@@ -445,14 +448,15 @@ class PersonalizedSpeechDataset(data.Dataset):
         config["n_mels"] = 40
         config["timeshift_ms"] = 100
         config["unknown_prob"] = 0.1
-        config["train_pct"] = 80
-        config["dev_pct"] = 10
-        config["test_pct"] = 10
+        config["train_pct"] = 60
+        config["dev_pct"] = 20
+        config["test_pct"] = 20
+        config["default_pos_size"] = 50
+        config["size_per_word"] = 10
         config["wanted_words"] = ["command", "random"]
         config["data_folder"] = "/media/brandon/SSD/data/speech_dataset"
         config["personalized_data_folder"] = "/media/brandon/SSD/data/personalized_speech_dataset/brandon"
         config["keep_original"] = True
-        config["size_per_word"] = 80
         config["audio_preprocess_type"] = "MFCCs"
         return config
 
@@ -481,6 +485,11 @@ class PersonalizedSpeechDataset(data.Dataset):
             if counter[label] < config['size_per_word']:
                 new_audio_files.append(file)
                 new_audio_labels.append(label)
+                counter[label] += 1
+
+        print("with size_per_word ", config['size_per_word'])
+        print(counter)
+        print("total :", len(new_audio_labels))
 
         return new_audio_files, new_audio_labels
 
@@ -534,6 +543,7 @@ class PersonalizedSpeechDataset(data.Dataset):
         folder = config["data_folder"]
         wanted_words = config["wanted_words"]
         unknown_prob = config["unknown_prob"]
+        default_pos_size = config["default_pos_size"]
         train_pct = config["train_pct"]
         dev_pct = config["dev_pct"]
         test_pct = config["test_pct"]
@@ -604,10 +614,11 @@ class PersonalizedSpeechDataset(data.Dataset):
                 continue
             if folder_name in words:
                 label = words[folder_name]
+                data_list = os.listdir(path_name)[:default_pos_size]
             else:
                 label = words[cls.LABEL_UNKNOWN]
+                data_list = os.listdir(path_name)[:int(default_pos_size*unknown_prob)]
 
-            data_list = os.listdir(path_name)
             num_audio = len(data_list)
 
             for index, filename in enumerate(data_list):
@@ -617,7 +628,7 @@ class PersonalizedSpeechDataset(data.Dataset):
                     personalized_unknown_files.append(wav_name)
                     continue
 
-                bucket = (int(filename[:1]) - 1) * 10
+                bucket = 100 * index / num_audio
                 if bucket < dev_pct:
                     tag = DatasetType.DEV
                 elif bucket < test_pct + dev_pct:
@@ -629,6 +640,21 @@ class PersonalizedSpeechDataset(data.Dataset):
 
         for tag in range(len(personalized_sets)):
             personalized_unknowns[tag] = int(unknown_prob * len(personalized_sets[tag]))
+
+        print("total unknown audios : ", len(personalized_unknown_files))
+
+        print('TRAIN')
+        print('\tpositive size :', len(personalized_sets[0]))
+        print('\tnegative size :', personalized_unknowns[0])
+
+        print('DEV')
+        print('\tpositive size :', len(personalized_sets[1]))
+        print('\tnegative size :', personalized_unknowns[1])
+        
+        print('TEST')
+        print('\tpositive size :', len(personalized_sets[2]))
+        print('\tnegative size :', personalized_unknowns[2])
+
         random.Random(0).shuffle(personalized_unknown_files)
 
         a = 0
@@ -637,6 +663,7 @@ class PersonalizedSpeechDataset(data.Dataset):
             unk_dict = {u: words[cls.LABEL_UNKNOWN] for u in personalized_unknown_files[a:b]}
             dataset.update(unk_dict)
             a = b
+
 
         train_cfg = ChainMap(dict(bg_noise_files=bg_noise_files), config)
         test_cfg = ChainMap(dict(bg_noise_files=bg_noise_files, noise_prob=0), config)
