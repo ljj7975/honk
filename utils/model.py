@@ -641,19 +641,19 @@ class PersonalizedSpeechDataset(data.Dataset):
         for tag in range(len(personalized_sets)):
             personalized_unknowns[tag] = int(unknown_prob * len(personalized_sets[tag]))
 
-        print("total unknown audios : ", len(personalized_unknown_files))
+        # print("total unknown audios : ", len(personalized_unknown_files))
 
-        print('TRAIN')
-        print('\tpositive size :', len(personalized_sets[0]))
-        print('\tnegative size :', personalized_unknowns[0])
+        # print('TRAIN')
+        # print('\tpositive size :', len(personalized_sets[0]))
+        # print('\tnegative size :', personalized_unknowns[0])
 
-        print('DEV')
-        print('\tpositive size :', len(personalized_sets[1]))
-        print('\tnegative size :', personalized_unknowns[1])
+        # print('DEV')
+        # print('\tpositive size :', len(personalized_sets[1]))
+        # print('\tnegative size :', personalized_unknowns[1])
         
-        print('TEST')
-        print('\tpositive size :', len(personalized_sets[2]))
-        print('\tnegative size :', personalized_unknowns[2])
+        # print('TEST')
+        # print('\tpositive size :', len(personalized_sets[2]))
+        # print('\tnegative size :', personalized_unknowns[2])
 
         random.Random(0).shuffle(personalized_unknown_files)
 

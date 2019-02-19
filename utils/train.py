@@ -179,9 +179,9 @@ def train(config, data_loaders=None):
                 loss_numeric = loss.item()
                 accs.append(print_eval("dev", scores, labels, loss))
             avg_acc = np.mean(accs)
-            print("final dev accuracy: {}".format(avg_acc))
             if avg_acc > max_acc:
                 print("saving best model...")
+                print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
     return evaluate(config, test_loader, model)
@@ -292,7 +292,7 @@ def evaluate_epochs(config, datasets):
         'personalized':[]
     }
 
-    for i in range(5, 100, 5):
+    for i in range(5, 50, 5):
         data_loaders = generate_data_loaders(config, datasets)
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
@@ -382,8 +382,8 @@ def main():
         print("\npersonalization\n")
 
         default_lr = [0.01]
-        default_size_per_word = 10
-        default_n_epochs = 30
+        default_size_per_word = 6
+        default_n_epochs = 20
 
         if config["type"] == "train":
             config['model_file_suffix'] = '{:%d_%H_%M}.pt'.format(datetime.datetime.now())
