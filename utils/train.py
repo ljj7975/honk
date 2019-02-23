@@ -54,7 +54,7 @@ def print_eval(name, scores, labels, loss, end="\n"):
     accuracy = (torch.max(scores, 1)[1].view(batch_size).data == labels.data).float().sum() / batch_size
     loss = loss.item()
     # print("{} accuracy: {:>5}, loss: {:<25}".format(name, accuracy, loss), end=end)
-    return accuracy
+    return accuracy.item()
 
 def set_seed(config):
     seed = config["seed"]
