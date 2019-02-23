@@ -101,7 +101,7 @@ def evaluate(config, test_loader=None, model=None):
         total += model_in.size(0)
     accuracy = sum(results) / total
     print("final test accuracy: {}".format(accuracy))
-    return accuracy.item()
+    return accuracy
 
 def train(config, data_loaders=None):
     if not data_loaders:
