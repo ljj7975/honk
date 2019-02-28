@@ -448,9 +448,11 @@ class PersonalizedSpeechDataset(data.Dataset):
         config["n_mels"] = 40
         config["timeshift_ms"] = 100
         config["unknown_prob"] = 0.1
-        config["train_pct"] = 60
-        config["dev_pct"] = 20
-        config["test_pct"] = 20
+        # we know that 10 per keyword is enough to see the difference
+        # use rest of data for evaluation
+        config["train_pct"] = 20 # 120 in total
+        config["dev_pct"] = 40 # 240 in total
+        config["test_pct"] = 40 # 240 in total
         config["default_pos_size"] = 50
         config["size_per_word"] = 10
         config["wanted_words"] = ["command", "random"]
@@ -487,9 +489,9 @@ class PersonalizedSpeechDataset(data.Dataset):
                 new_audio_labels.append(label)
                 counter[label] += 1
 
-        print("with size_per_word ", config['size_per_word'])
-        print(counter)
-        print("total :", len(new_audio_labels))
+        print("\twith size_per_word ",config['size_per_word'], )
+        # print(counter)
+        print("\ttotal :", len(new_audio_labels) + config['size_per_word'])
 
         return new_audio_files, new_audio_labels
 

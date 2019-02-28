@@ -322,8 +322,8 @@ def generate_data_loaders(config, datasets):
 
     train_loader = data.DataLoader(
         datasets["train_set"],
-        batch_size=config["batch_size"],
-        shuffle=True, drop_last=True,
+        batch_size=len(train_set),
+        shuffle=True,
         collate_fn=train_set.collate_fn)
     dev_loader = data.DataLoader(
         datasets["dev_set"],
