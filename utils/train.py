@@ -177,39 +177,29 @@ def train(config):
                 accs.append(print_eval("dev", scores, labels, loss))
             avg_acc = np.mean(accs)
             if avg_acc > max_acc:
-                print("saving best model...")
-                print("final dev accuracy: {}".format(avg_acc))
+                # print("saving best model...")
+                # print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
     return evaluate(config, model)
 
-def evaluate_personalization(base_config, personalized_config, acc_map=None):
-    acc = round(evaluate(base_config), 4)
-    print("\n< accuracy on original data : ", acc, ">")
-    if acc_map:
-        acc_map['original'].append(acc)
+def evaluate_personalization(base_config, personalized_config, acc_map, personalized_acc=None):
+    base_acc = evaluate(base_config)
+    # print("\n< accuracy on original data : ", acc, ">")
+    acc_map['original'].append(round(base_acc, 5))
 
-    # config["personalized"] = True
-    # config["keep_original"] = True
-    # acc = round(evaluate(config), 4)
-    # print("\n< accuracy on mixed personalized data : ", acc, ">")
-    # if acc_map:
-    #     acc_map['mixed'].append(acc)
+    if not personalized_acc:
+        personalized_acc = evaluate(personalized_config)
+    # print("\n< accuracy on pure personalized data : ", acc, ">")
+    acc_map['personalized'].append(round(personalized_acc, 5))
 
-    personalized_config["keep_original"] = False
-    acc = round(evaluate(personalized_config), 4)
-    print("\n< accuracy on pure personalized data : ", acc, ">")
-    if acc_map:
-        acc_map['personalized'].append(acc)
-
-def evaluate_data_size(base_config, config):
+def evaluate_data_size(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (size of personalized data set) ~~" + TEXT_COLOR['ENDC'])
 
-    data_size = []
+    data_size = [0]
     acc_map = {
-        'original':[],
-        # 'mixed':[],
-        'personalized':[]
+        'original':[original_acc],
+        'personalized':[personalized_acc]
     }
 
     for i in range(1, 11):
@@ -222,13 +212,14 @@ def evaluate_data_size(base_config, config):
         config["output_file"] = new_model_file_name
 
         print("\n< train further only with personalized data >")
-        config["keep_original"] = False
-        train(config)
+        personalized_acc = train(config)
 
         config["input_file"] = new_model_file_name
-        evaluate_personalization(base_config, config, acc_map)
+        base_config["input_file"] = new_model_file_name
+        evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
-        print(TEXT_COLOR['WARNING'] + str(data_size[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+        print(TEXT_COLOR['WARNING'] + str(data_size[-1]) +' : '
+            + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return data_size, acc_map, best_index
@@ -239,7 +230,6 @@ def evaluate_lr(base_config, config):
     lr = []
     acc_map = {
         'original':[],
-        # 'mixed':[],
         'personalized':[]
     }
 
@@ -253,25 +243,24 @@ def evaluate_lr(base_config, config):
         config["output_file"] = new_model_file_name
 
         print("\n< train further only with personalized data >")
-        config["keep_original"] = False
-        train(config)
+        personalized_acc = train(config)
 
         config["input_file"] = new_model_file_name
-        evaluate_personalization(base_config, config, acc_map)
+        base_config["input_file"] = new_model_file_name
+        evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
         print(TEXT_COLOR['WARNING'] + str(lr[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return lr, acc_map, best_index
 
-def evaluate_epochs(base_config, config):
+def evaluate_epochs(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (epochs) ~~" + TEXT_COLOR['ENDC'])
 
-    epochs = []
+    epochs = [0]
     acc_map = {
-        'original':[],
-        # 'mixed':[],
-        'personalized':[]
+        'original':[original_acc],
+        'personalized':[personalized_acc]
     }
 
     for i in range(5, 105, 5):
@@ -284,11 +273,11 @@ def evaluate_epochs(base_config, config):
         config["output_file"] = new_model_file_name
 
         print("\n< train further only with personalized data >")
-        config["keep_original"] = False
-        train(config)
+        personalized_acc = train(config)
 
         config["input_file"] = new_model_file_name
-        evaluate_personalization(base_config, config, acc_map)
+        base_config["input_file"] = new_model_file_name
+        evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
         print(TEXT_COLOR['WARNING'] + str(epochs[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
@@ -350,23 +339,26 @@ def main():
     personalized_config["model_class"] = mod_cls
     personalized_config['model_dir'] = 'model/'
     personalized_config["personalized"] = True
+    personalized_config["keep_original"] = False
 
     default_lr = [0.01]
     default_size_per_word = 1
     default_n_epochs = 20
 
+    total_data_size = 5
+
     if base_config["type"] == "train":
         personalized_config['model_file_suffix'] = '{:%d_%H_%M}.pt'.format(datetime.datetime.now())
 
         # training base model
-        # original_model_file_name = personalized_config['model_dir'] + 'original_' + personalized_config['model_file_suffix']
-        # base_config["output_file"] = original_model_file_name
+        original_model_file_name = personalized_config['model_dir'] + 'original_' + personalized_config['model_file_suffix']
+        base_config["output_file"] = original_model_file_name
 
-        # print(TEXT_COLOR['WARNING'] + "\n~~ Training base model ~~" + TEXT_COLOR['ENDC'])
-        # train(base_config)
+        print(TEXT_COLOR['WARNING'] + "\n~~ Training base model ~~" + TEXT_COLOR['ENDC'])
+        train(base_config)
 
         # reusing pretrained base model
-        original_model_file_name = "model/res8-narrow.pt"
+        # original_model_file_name = "model/res8-narrow.pt"
 
         base_config["input_file"] = original_model_file_name
         personalized_config["input_file"] = original_model_file_name
@@ -374,6 +366,8 @@ def main():
         reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
 
         print(TEXT_COLOR['OKGREEN'])
+        print("personlized dataset :", personalized_config["personalized_data_folder"])
+
         print("default size_per_word :", personalized_config["size_per_word"])
         print("default lr :", personalized_config["lr"])
         print("default n_epochs :", personalized_config["n_epochs"])
@@ -383,15 +377,17 @@ def main():
 
         pre_trained_acc_map = {
             'original':[],
-            # 'mixed':[],
             'personalized':[]
         }
 
         evaluate_personalization(base_config, personalized_config, pre_trained_acc_map)
+
+        original_acc = pre_trained_acc_map['original'][0]
+        personalized_acc = pre_trained_acc_map['personalized'][0]
+
         print(TEXT_COLOR['OKGREEN'])
-        print('original - ', pre_trained_acc_map['original'])
-        # print('mixed - ', pre_trained_acc_map['mixed'])
-        print('personalized - ', pre_trained_acc_map['personalized'])
+        print('original - ', original_acc)
+        print('personalized - ', personalized_acc)
         print(TEXT_COLOR['ENDC'])
 
         # personalization experiment
@@ -400,97 +396,125 @@ def main():
         print('experiment type : ', personalized_config["exp_type"])
 
         if personalized_config["exp_type"] == "all":
-            reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config)
 
-            best_data_size = data_size[best_data_size_index]
-            best_data_size_acc = data_size_acc_map['personalized'][best_data_size_index]
+            # # Data Size
+            # print(TEXT_COLOR['FAIL'])
+            # print('EXP_TYPE : DATA_SIZE')
+            # print(TEXT_COLOR['ENDC'])
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best data size is " + str(best_data_size) + " with acc of " + str(best_data_size_acc) + "~~~~~~")
-            print('datasize - ', data_size)
-            print('original - ', data_size_acc_map['original'])
-            # print('mixed - ', data_size_acc_map['mixed'])
-            print('personalized - ', data_size_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
+            # reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
+            # data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config, original_acc, personalized_acc)
 
-            reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
+            # best_data_size = data_size[best_data_size_index]
+            # best_data_size_acc = data_size_acc_map['personalized'][best_data_size_index]
 
-            best_lr = lr[best_lr_index]
-            best_lr_acc = lr_acc_map['personalized'][best_lr_index]
+            # print(TEXT_COLOR['OKGREEN'])
+            # print("\n~~~~~~~~~~ best data size is " + str(best_data_size) + " with acc of " + str(best_data_size_acc) + "~~~~~~")
+            # print('datasize = ', data_size)
+            # print('original = ', data_size_acc_map['original'])
+            # print('personalized = ', data_size_acc_map['personalized'])
+            # print(TEXT_COLOR['ENDC'])
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
-            print('lr - ', lr)
-            print('original - ', lr_acc_map['original'])
-            # print('mixed - ', lr_acc_map['mixed'])
-            print('personalized - ', lr_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
-
-            reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config)
-
-            best_epochs = epochs[best_epochs_index]
-            best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
-
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
-            print('epochs - ', epochs)
-            print('original - ', epochs_acc_map['original'])
-            # print('mixed - ', epochs_acc_map['mixed'])
-            print('personalized - ', epochs_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
-
+            # Learning Rate
             print(TEXT_COLOR['FAIL'])
-            print("\nsummary :")
-            print("best datasize :", best_data_size, best_data_size_acc)
-            print("best lr :", best_lr, best_lr_acc)
-            print("best epcohs :", best_epochs, best_epochs_acc)
+            print('EXP_TYPE : LEARNING RATE')
             print(TEXT_COLOR['ENDC'])
+
+            for i in range(1, total_data_size + 1):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
+
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
+
+                best_lr = lr[best_lr_index]
+                best_lr_acc = lr_acc_map['personalized'][best_lr_index]
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
+                print('datasize = ', i)
+                print('lr = ', lr)
+                print('original = ', lr_acc_map['original'])
+                print('personalized = ', lr_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+            # Epochs
+            print(TEXT_COLOR['FAIL'])
+            print('EXP_TYPE : EPOCHS')
+            print(TEXT_COLOR['ENDC'])
+
+            for i in range(1, total_data_size + 1):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
+
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config, original_acc, personalized_acc)
+
+                best_epochs = epochs[best_epochs_index]
+                best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
+                print('datasize = ', i)
+                print('epochs = ', epochs)
+                print('original = ', epochs_acc_map['original'])
+                print('personalized = ', epochs_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
 
         elif personalized_config["exp_type"] == "data_size":
             reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config)
+            data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config, original_acc, personalized_acc)
 
             print(TEXT_COLOR['OKGREEN'])
             print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
-            print('datasize - ', data_size)
-            print('original - ', data_size_acc_map['original'])
-            # print('mixed - ', data_size_acc_map['mixed'])
-            print('personalized - ', data_size_acc_map['personalized'])
+            print('datasize = ', data_size)
+            print('original = ', data_size_acc_map['original'])
+            print('personalized = ', data_size_acc_map['personalized'])
             print(TEXT_COLOR['ENDC'])
 
         elif personalized_config["exp_type"] == "lr":
-            reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
-            print('lr - ', lr)
-            print('original - ', lr_acc_map['original'])
-            # print('mixed - ', lr_acc_map['mixed'])
-            print('personalized - ', lr_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
+            for i in range(1, total_data_size + 1):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
+
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
+                print('datasize = ', i)
+                print('lr = ', lr)
+                print('original = ', lr_acc_map['original'])
+                print('personalized = ', lr_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
 
         elif personalized_config["exp_type"] == "epochs":
-            reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-            epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config)
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
-            print('epochs - ', epochs)
-            print('original - ', epochs_acc_map['original'])
-            # print('mixed - ', epochs_acc_map['mixed'])
-            print('personalized - ', epochs_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
+            for i in range(1, total_data_size + 1):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
+
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config, original_acc, personalized_acc)
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
+                print('datasize = ', i)
+                print('epochs = ', epochs)
+                print('original = ', epochs_acc_map['original'])
+                print('personalized = ', epochs_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
 
     elif personalized_config["type"] == "eval":
         reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
 
         pre_trained_acc_map = {
             'original':[],
-            # 'mixed':[],
             'personalized':[]
         }
 

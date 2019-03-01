@@ -486,9 +486,7 @@ class PersonalizedSpeechDataset(data.Dataset):
                 new_audio_labels.append(label)
                 counter[label] += 1
 
-        print("\twith size_per_word ",config['size_per_word'], )
-        # print(counter)
-        print("\ttotal :", len(new_audio_labels) + config['size_per_word'])
+        print("\tdata set with size_per_word :",config['size_per_word'], "total :", len(new_audio_labels) + config['size_per_word'])
 
         return new_audio_files, new_audio_labels
 
