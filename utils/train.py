@@ -239,7 +239,7 @@ def evaluate_lr(base_config, config):
     for i in range(1, 5):
         config["lr"] = [round(0.1**i, i)]
         lr.append(config["lr"][0])
-        new_model_file_name = config['model_dir'] + '_' + str(config["size_per_word"]) + '_lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
+        new_model_file_name = config['model_dir'] + 'lr_' + str(config["size_per_word"]) + '_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
         print("\n\n~~ learning rate : " + str(config["lr"][0]) + " ~~")
         print("~~ Model path : " + new_model_file_name + " ~~")
         config["input_file"] = config['original_model']
@@ -273,7 +273,7 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
     for i in range(5, 105, 5):
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
-        new_model_file_name = config['model_dir'] + '_' + str(config["size_per_word"]) + '_epochs_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
+        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
         print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
         print("~~ Model path : " + new_model_file_name + " ~~")
         config["input_file"] = config['original_model']
