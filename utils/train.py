@@ -394,20 +394,6 @@ def main():
         print('personalized - ', pre_trained_acc_map['personalized'])
         print(TEXT_COLOR['ENDC'])
 
-
-        pre_trained_acc_map = {
-            'original':[],
-            # 'mixed':[],
-            'personalized':[]
-        }
-
-        evaluate_personalization(base_config, personalized_config, pre_trained_acc_map)
-        print(TEXT_COLOR['OKGREEN'])
-        print('22 original - ', pre_trained_acc_map['original'])
-        # print('mixed - ', pre_trained_acc_map['mixed'])
-        print('22 personalized - ', pre_trained_acc_map['personalized'])
-        print(TEXT_COLOR['ENDC'])
-
         # personalization experiment
         personalized_config['original_model'] = original_model_file_name
 
