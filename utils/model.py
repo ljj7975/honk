@@ -292,10 +292,7 @@ class SpeechDataset(data.Dataset):
             data = np.zeros(in_len, dtype=np.float32)
         else:
             file_data = self._file_cache.get(example)
-            try:
-                data = librosa.core.load(example, sr=16000)[0] if file_data is None else file_data
-            except Exception:
-                print('failed to load', example)
+            data = librosa.core.load(example, sr=16000)[0] if file_data is None else file_data
             self._file_cache[example] = data
         data = np.pad(data, (0, max(0, in_len - len(data))), "constant")
         if self.set_type == DatasetType.TRAIN:
@@ -396,7 +393,7 @@ class PersonalizedSpeechDataset(data.Dataset):
 
             remaining = 0
             items = list(personalized_data.items())
-            random.Random(0).shuffle(items)
+            random.shuffle(items)
             for key, value in items:
                 words[value].append(key)
                 remaining += 1
@@ -412,7 +409,7 @@ class PersonalizedSpeechDataset(data.Dataset):
                     break
         else:
             combined = list(zip(personalized_data.keys(), personalized_data.values()))
-            random.Random(0).shuffle(combined)
+            random.shuffle(combined)
 
             files, labels = zip(*combined)
 
@@ -594,7 +591,7 @@ class PersonalizedSpeechDataset(data.Dataset):
 
         for tag in range(len(sets)):
             unknowns[tag] = int(unknown_prob * len(sets[tag]))
-        random.Random(0).shuffle(unknown_files)
+        random.shuffle(unknown_files)
         a = 0
         for i, dataset in enumerate(sets):
             b = a + unknowns[i]
@@ -657,7 +654,7 @@ class PersonalizedSpeechDataset(data.Dataset):
         # print('\tpositive size :', len(personalized_sets[2]))
         # print('\tnegative size :', personalized_unknowns[2])
 
-        random.Random(0).shuffle(personalized_unknown_files)
+        random.shuffle(personalized_unknown_files)
 
         a = 0
         for i, dataset in enumerate(personalized_sets):
