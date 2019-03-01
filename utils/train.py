@@ -101,7 +101,7 @@ def evaluate(config, model=None):
         results.append(print_eval("test", scores, labels, loss) * model_in.size(0))
         total += model_in.size(0)
     accuracy = sum(results) / total
-    print("final test accuracy: {}".format(accuracy))
+    # print("final test accuracy: {}".format(accuracy))
     return accuracy
 
 def train(config):
@@ -202,6 +202,9 @@ def evaluate_data_size(base_config, config, original_acc, personalized_acc):
         'personalized':[personalized_acc]
     }
 
+    print(TEXT_COLOR['WARNING'] + '\t' + str(data_size[-1]) +' : '
+        + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
     for i in range(1, 11):
         config["size_per_word"] = i
         data_size.append(config["size_per_word"])
@@ -218,7 +221,7 @@ def evaluate_data_size(base_config, config, original_acc, personalized_acc):
         base_config["input_file"] = new_model_file_name
         evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
-        print(TEXT_COLOR['WARNING'] + str(data_size[-1]) +' : '
+        print(TEXT_COLOR['WARNING'] + '\t' + str(data_size[-1]) +' : '
             + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
@@ -249,7 +252,8 @@ def evaluate_lr(base_config, config):
         base_config["input_file"] = new_model_file_name
         evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
-        print(TEXT_COLOR['WARNING'] + str(lr[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+        print(TEXT_COLOR['WARNING'] + '\t' + str(lr[-1]) +' : '
+            + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return lr, acc_map, best_index
@@ -263,10 +267,13 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
         'personalized':[personalized_acc]
     }
 
+    print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+        + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
     for i in range(5, 105, 5):
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
-        new_model_file_name = config['model_dir'] + 'lr_' + str(config["lr"][0]) + '_' + config['model_file_suffix']
+        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
         print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
         print("~~ Model path : " + new_model_file_name + " ~~")
         config["input_file"] = config['original_model']
@@ -279,7 +286,8 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
         base_config["input_file"] = new_model_file_name
         evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
-        print(TEXT_COLOR['WARNING'] + str(epochs[-1]) +' - ' + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+        print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+            + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return epochs, acc_map, best_index
