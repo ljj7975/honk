@@ -107,6 +107,9 @@ venv.bak/
 # keyword generator
 keyword_spotting_data_generator/evaluation/audio_data
 
+# personalization
+**/results
+
 .DS_STORE
 training_data/
 model/
