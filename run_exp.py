@@ -5,8 +5,12 @@ import json
 import datetime
 import os
 import ast
+import random
+import sys
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{} --type eval'
+iteration = sys.argv[1]
+
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval'
 
 
 people = ["brandon", "jay", "jack", "max"]
@@ -138,33 +142,37 @@ def get_epochs(lines):
                 flag = False
     return results
 
-dir_name = 'results/' + datetime.datetime.now().strftime('%m%d_%H%M%S')
+for i in range(iteration):
+    dir_name = 'results/' + datetime.datetime.now().strftime('%m%d_%H%M%S')
+    seed⋅=⋅random.randint(1,1001)
+    print(i, dir_name)
 
-for person in people:
-    command = command_template.format(person)
+    for person in people:
+        command = command_template.format(seed, person)
+        print(command)
+        sys.stdout.flush()
+        result = subprocess.run(command.split(), stdout=subprocess.PIPE)
+        outputs = result.stdout.decode("utf-8").split("\n")
+        results = {
+            "command" : command,
+            "setting" : get_defaults(outputs),
+            "lr" : get_learning_rate(outputs),
+            "epochs" : get_epochs(outputs)
+        }
 
-    result = subprocess.run(command.split(), stdout=subprocess.PIPE)
-    print(command)
-    outputs = result.stdout.decode("utf-8").split("\n")
-    results = {
-        "command" : command,
-        "setting" : get_defaults(outputs),
-        "lr" : get_learning_rate(outputs),
-        "epochs" : get_epochs(outputs)
-    }
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
 
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+        summary_file = os.path.join(dir_name, person + '_summary.txt')
+        with open(summary_file, 'w') as file:
+            pprint.pprint(results, stream=file)
 
-    summary_file = os.path.join(dir_name, person + '_summary.txt')
-    with open(summary_file, 'w') as file:
-        pprint.pprint(results, stream=file)
+        raw_file = os.path.join(dir_name, person + '_raw.txt')
+        with open(raw_file, 'w') as file:
+            for line in outputs:
+                file.write("%s\n" % line)
 
-    raw_file = os.path.join(dir_name, person + '_raw.txt')
-    with open(raw_file, 'w') as file:
-        for line in outputs:
-            file.write("%s\n" % line)
-
-    print("experiment for " + person + "is completed")
-    print("\tsummary :", summary_file)
-    print("\traw_file :", raw_file)
+        print("experiment for " + person + "is completed")
+        print("\tsummary :", summary_file)
+        print("\traw_file :", raw_file)
+        sys.stdout.flush()

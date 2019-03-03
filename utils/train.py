@@ -428,7 +428,7 @@ def main():
         print('EXP_TYPE : LEARNING RATE')
         print(TEXT_COLOR['ENDC'])
 
-        for i in range(1, total_data_size + 1):
+        for i in range(1, total_data_size + 1, 2):
             print(TEXT_COLOR['WARNING'])
             print('datasize = ', i)
             print(TEXT_COLOR['ENDC'])
@@ -452,7 +452,7 @@ def main():
         print('EXP_TYPE : EPOCHS')
         print(TEXT_COLOR['ENDC'])
 
-        for i in range(1, total_data_size + 1):
+        for i in range(1, total_data_size + 1, 2):
             print(TEXT_COLOR['WARNING'])
             print('datasize = ', i)
             print(TEXT_COLOR['ENDC'])
