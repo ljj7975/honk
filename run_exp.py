@@ -27,6 +27,7 @@ def get_defaults(lines):
     dataset = None
     size_per_word = None
     lr = None
+    epochs = None
     original_acc = None
     personlized_acc = None
 
@@ -39,8 +40,12 @@ def get_defaults(lines):
 
         if not size_per_word:
             size_per_word = search('default size_per_word : (.*)', line, 1)
+
         if not lr:
-            lr = search('default n_epochs : (.*)', line, 1)
+            lr = search('default lr : (.*)', line, 1)
+
+        if not epochs:
+            epochs = search('default n_epochs : (.*)', line, 1)
 
         if not original_acc:
             original_acc = search('original - (.*)', line, 1)
@@ -52,7 +57,8 @@ def get_defaults(lines):
         "base_model" : base_model,
         "dataset" : dataset,
         "size_per_word" : int(size_per_word),
-        "lr" : lr,
+        "lr" : float(lr),
+        "epochs" : int(epochs),
         "original_acc" : float(original_acc),
         "personlized_acc" : float(personlized_acc)
     }

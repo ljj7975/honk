@@ -377,7 +377,7 @@ def main():
     print("base model :", original_model_file_name)
     print("personlized dataset :", personalized_config["personalized_data_folder"])
     print("default size_per_word :", personalized_config["size_per_word"])
-    print("default lr :", personalized_config["lr"])
+    print("default lr :", personalized_config["lr"][0])
     print("default n_epochs :", personalized_config["n_epochs"])
     print(TEXT_COLOR['ENDC'])
 
