@@ -73,7 +73,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} (per : {1})'.format(person, per_acc[person]))
+    axis.set_title('{0} (per : {1})'.format(person, round(per_acc[person], 4)))
 
     axis.set(xlabel='Learning rate', ylabel='Accuracy', xticks=x_ticks, xticklabels=lr)
     axis.set_ylim(0.7, 1.0)
@@ -94,7 +94,7 @@ fig.legend(legends,     # The line objects
            )
 
 fig.subplots_adjust(bottom=0.15, wspace=0.28, hspace=0.35)
-fig.suptitle('Learning Rate ( epochs = {0} )\nbase model acc : {1}'.format(epochs, base_model_acc))
+fig.suptitle('Learning Rate ( epochs = {0} )\nbase model acc : {1}'.format(epochs, round(base_model_acc, 4)))
 
 fig.savefig("learning_rate.png")
 plt.show()
