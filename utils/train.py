@@ -1,5 +1,6 @@
 from collections import ChainMap
 import argparse
+import copy
 import datetime
 import os
 import random
@@ -67,7 +68,7 @@ def set_seed(config):
 def evaluate(config, model=None):
     set_seed(config)
     if config["personalized"]:
-        _, _, test_set = mod.PersonalizedSpeechDataset.splits(config)
+        _, test_set, _ = mod.PersonalizedSpeechDataset.splits(config)
     else:
         _, _, test_set = mod.SpeechDataset.splits(config)
 
@@ -107,7 +108,8 @@ def evaluate(config, model=None):
 def train(config):
     set_seed(config)
     if config["personalized"]:
-        train_set, dev_set, test_set = mod.PersonalizedSpeechDataset.splits(config)
+        train_set, dev_set, _ = mod.PersonalizedSpeechDataset.splits(config)
+        test_set = copy.copy(dev_set)
     else:
         train_set, dev_set, test_set = mod.SpeechDataset.splits(config)
 

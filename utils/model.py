@@ -411,7 +411,9 @@ class PersonalizedSpeechDataset(data.Dataset):
             combined = list(zip(personalized_data.keys(), personalized_data.values()))
             random.shuffle(combined)
 
-            files, labels = zip(*combined)
+            files, labels = [], []
+            if combined:
+                files, labels = zip(*combined)
 
             self.audio_files = list(files)
             self.audio_labels = list(labels)
@@ -448,8 +450,8 @@ class PersonalizedSpeechDataset(data.Dataset):
         # we know that 10 per keyword is enough to see the difference
         # use rest of data for evaluation
         config["train_pct"] = 20 # 120 in total
-        config["dev_pct"] = 40 # 240 in total
-        config["test_pct"] = 40 # 240 in total
+        config["dev_pct"] = 80 # 480 in total
+        config["test_pct"] = 0 # 0 in total
         config["default_pos_size"] = 50
         config["size_per_word"] = 10
         config["wanted_words"] = ["command", "random"]
