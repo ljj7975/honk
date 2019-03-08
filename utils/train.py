@@ -1,5 +1,6 @@
 from collections import ChainMap
 import argparse
+import datetime
 import os
 import random
 import sys
@@ -68,6 +69,11 @@ def evaluate(config, model=None, test_loader=None):
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
     model.eval()
+    if config["type"] == "eval":
+        print(f"{sum(p.numel() for p in model.parameters())} parameters")
+        if config["prune_pct"]:
+            model.prune(config["prune_pct"], freeze=True)
+            print(f"{sum(p.numel() for p in model.parameters())} parameters after slimming")
     criterion = nn.CrossEntropyLoss()
     results = []
     total = 0
@@ -95,6 +101,8 @@ def train(config):
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
+    if config["network_slimming"]:
+        model.prune(config["prune_pct"])
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
@@ -130,14 +138,15 @@ def train(config):
             scores = model(model_in)
             labels = Variable(labels, requires_grad=False)
             loss = criterion(scores, labels)
+            if config["slimming_lambda"]:
+                loss += model.regularization()
             loss.backward()
             optimizer.step()
             step_no += 1
             if step_no > schedule_steps[sched_idx]:
                 sched_idx += 1
                 print("changing learning rate to {}".format(config["lr"][sched_idx]))
-                optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][sched_idx],
-                    nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
+                optimizer.param_groups[0]["lr"] = config["lr"][sched_idx]
             print_eval("train step #{}".format(step_no), scores, labels, loss)
 
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
@@ -166,9 +175,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", choices=[x.value for x in list(mod.ConfigType)], default="cnn-trad-pool2", type=str)
     config, _ = parser.parse_known_args()
+    model_dir_name = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "model")
 
     global_config = dict(no_cuda=False, n_epochs=500, lr=[0.001], schedule=[np.inf], batch_size=64, dev_every=10, seed=0,
-        use_nesterov=False, input_file="", output_file=output_file, gpu_no=1, cache_size=32768, momentum=0.9, weight_decay=0.00001)
+        use_nesterov=False, input_file="", output_file=os.path.join(model_dir_name, config.model+".pt"), gpu_no=1, cache_size=32768, momentum=0.9, weight_decay=0.00001, network_slimming=False, prune_pct=0., slimming_lambda=0., model_name=config.model)
     mod_cls = mod.find_model(config.model)
     builder = ConfigBuilder(
         mod.find_config(config.model),
@@ -178,6 +188,13 @@ def main():
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
     config = builder.config_from_argparse(parser)
     config["model_class"] = mod_cls
+
+    curr_time = datetime.datetime.now().strftime("%H_%M")
+    model_file_name = config["model_name"] + "_" + curr_time+".pt"
+    if config["network_slimming"]:
+        model_file_name = config["model_name"] + "_" + str(round(config["prune_pct"] * 100)) + "_" + curr_time + ".pt"
+    config["output_file"] = os.path.join(model_dir_name, model_file_name)
+
     set_seed(config)
     if config["type"] == "train":
         train(config)
