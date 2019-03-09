@@ -272,7 +272,7 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
-    for i in range(5, 55, 5):
+    for i in range(5, 61, 5):
         config["n_epochs"] = i
         epochs.append(config["n_epochs"])
         new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
@@ -353,7 +353,7 @@ def main():
 
     default_lr = [0.01]
     default_size_per_word = 1
-    default_n_epochs = 20
+    default_n_epochs = 25
 
     total_data_size = 5
 
