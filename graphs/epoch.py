@@ -34,6 +34,7 @@ learning_rate = None
 base_model_acc = None
 epochs = None
 
+print("total exp : ", len(os.listdir(result_dir)))
 for exp in os.listdir(result_dir):
     print(exp)
     for file_name in os.listdir(os.path.join(result_dir, exp)):
