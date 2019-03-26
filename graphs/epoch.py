@@ -70,8 +70,8 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} (per : {1})'.format(person, round(per_acc[person], 4)))
-    axis.set(xlabel='Epochs', ylabel='Accuracy', xticks=epochs[::2])
+    axis.set_title('{0} - {1} %'.format(person.upper(), round(per_acc[person] * 100, 2)))
+    axis.set(xlabel='number of epoch', ylabel='accuracy', xticks=epochs[::2])
     axis.set_ylim(0.75, 1.0)
     axis.grid()
 
@@ -89,8 +89,8 @@ fig.legend(legends,     # The line objects
            ncol=3
            )
 
-fig.subplots_adjust(bottom=0.15, wspace=0.28, hspace=0.35)
-fig.suptitle('Epochs ( learning rate = {0} )\nbase model acc : {1}'.format(learning_rate, round(base_model_acc, 4)))
+fig.subplots_adjust(bottom=0.15, wspace=0.38, hspace=0.38, right=0.95)
+fig.suptitle('Epoch\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
 
 fig.savefig("epoch.png")
 plt.show()
