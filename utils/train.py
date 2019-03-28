@@ -5,6 +5,7 @@ import datetime
 import os
 import random
 import sys
+import time
 
 from torch.autograd import Variable
 import numpy as np
@@ -143,7 +144,12 @@ def train(config):
         shuffle=True,
         collate_fn=test_set.collate_fn)
 
+    total_time = 0
+
     for epoch_idx in range(config["n_epochs"]):
+        
+        start_time = time.time()
+
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
             optimizer.zero_grad()
@@ -164,6 +170,7 @@ def train(config):
                     nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
             print_eval("train step #{}".format(step_no), scores, labels, loss)
 
+        total_time += time.time() - start_time
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
             model.eval()
             accs = []
@@ -183,7 +190,7 @@ def train(config):
                 # print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
-    return evaluate(config, model)
+    return total_time
 
 def evaluate_personalization(base_config, personalized_config, acc_map, personalized_acc=None):
     base_acc = evaluate(base_config)
@@ -330,7 +337,7 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
     base_config = builder.config_from_argparse(parser)
 
     builder = ConfigBuilder(
@@ -339,7 +346,7 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
     personalized_config = builder.config_from_argparse(parser)
 
     base_config["model_class"] = mod_cls
@@ -518,6 +525,31 @@ def main():
             print('epochs = ', epochs)
             print('original = ', epochs_acc_map['original'])
             print('personalized = ', epochs_acc_map['personalized'])
+            print(TEXT_COLOR['ENDC'])
+
+    elif personalized_config["exp_type"] == "time":
+        default_lr = [0.01]
+        default_n_epochs = 50
+
+
+        for i in range(3):
+            data_size = i * 2 + 1
+
+            finetuning_times = []
+
+            for j in range(10):
+
+                reset_config(personalized_config, data_size, default_lr, default_n_epochs)
+
+                personalized_config["input_file"] = personalized_config['original_model']
+                personalized_config["output_file"] = "temp" + str(j) + ".pt"
+
+                print("\n< train further only with personalized data >")
+                finetuning_times.append(train(personalized_config))
+
+            print(TEXT_COLOR['OKGREEN'])
+            print('\tfor data size : ', data_size)
+            print('\taverage finetuning_times : ', int(round(np.average(finetuning_times) * 1000)))
             print(TEXT_COLOR['ENDC'])
 
 if __name__ == "__main__":

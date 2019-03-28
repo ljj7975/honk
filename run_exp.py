@@ -10,7 +10,7 @@ import sys
 
 iteration = int(sys.argv[1])
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval'
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval --exp_type time'
 
 
 people = ["brandon", "jay", "jack", "max"]
