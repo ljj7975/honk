@@ -148,20 +148,20 @@ def train(config):
 
     for epoch_idx in range(config["n_epochs"]):
         
-        start_time = time.time()
-
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
             optimizer.zero_grad()
             if not config["no_cuda"]:
                 model_in = model_in.cuda()
                 labels = labels.cuda()
+            start_time = time.time()
             model_in = Variable(model_in, requires_grad=False)
             scores = model(model_in)
             labels = Variable(labels, requires_grad=False)
             loss = criterion(scores, labels)
             loss.backward()
             optimizer.step()
+            total_time += time.time() - start_time
             step_no += 1
             if step_no > schedule_steps[sched_idx]:
                 sched_idx += 1
@@ -170,26 +170,26 @@ def train(config):
                     nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
             print_eval("train step #{}".format(step_no), scores, labels, loss)
 
-        total_time += time.time() - start_time
-        if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
-            model.eval()
-            accs = []
-            for model_in, labels in dev_loader:
-                model_in = Variable(model_in, requires_grad=False)
-                if not config["no_cuda"]:
-                    model_in = model_in.cuda()
-                    labels = labels.cuda()
-                scores = model(model_in)
-                labels = Variable(labels, requires_grad=False)
-                loss = criterion(scores, labels)
-                loss_numeric = loss.item()
-                accs.append(print_eval("dev", scores, labels, loss))
-            avg_acc = np.mean(accs)
-            if avg_acc > max_acc:
-                # print("saving best model...")
-                # print("final dev accuracy: {}".format(avg_acc))
-                max_acc = avg_acc
-                model.save(config["output_file"])
+        
+        # if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
+        #     model.eval()
+        #     accs = []
+        #     for model_in, labels in dev_loader:
+        #         model_in = Variable(model_in, requires_grad=False)
+        #         if not config["no_cuda"]:
+        #             model_in = model_in.cuda()
+        #             labels = labels.cuda()
+        #         scores = model(model_in)
+        #         labels = Variable(labels, requires_grad=False)
+        #         loss = criterion(scores, labels)
+        #         loss_numeric = loss.item()
+        #         accs.append(print_eval("dev", scores, labels, loss))
+        #     avg_acc = np.mean(accs)
+        #     if avg_acc > max_acc:
+        #         # print("saving best model...")
+        #         # print("final dev accuracy: {}".format(avg_acc))
+        #         max_acc = avg_acc
+        #         model.save(config["output_file"])
     return total_time
 
 def evaluate_personalization(base_config, personalized_config, acc_map, personalized_acc=None):
@@ -390,22 +390,22 @@ def main():
     print("default n_epochs :", personalized_config["n_epochs"])
     print(TEXT_COLOR['ENDC'])
 
-    print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
+    # print(TEXT_COLOR['WARNING'] + "\n~~ pre personalization evaluation ~~" + TEXT_COLOR['ENDC'])
 
-    pre_trained_acc_map = {
-        'original':[],
-        'personalized':[]
-    }
+    # pre_trained_acc_map = {
+    #     'original':[],
+    #     'personalized':[]
+    # }
 
-    evaluate_personalization(base_config, personalized_config, pre_trained_acc_map)
+    # evaluate_personalization(base_config, personalized_config, pre_trained_acc_map)
 
-    original_acc = pre_trained_acc_map['original'][0]
-    personalized_acc = pre_trained_acc_map['personalized'][0]
+    # original_acc = pre_trained_acc_map['original'][0]
+    # personalized_acc = pre_trained_acc_map['personalized'][0]
 
-    print(TEXT_COLOR['OKGREEN'])
-    print('original - ', original_acc)
-    print('personalized - ', personalized_acc)
-    print(TEXT_COLOR['ENDC'])
+    # print(TEXT_COLOR['OKGREEN'])
+    # print('original - ', original_acc)
+    # print('personalized - ', personalized_acc)
+    # print(TEXT_COLOR['ENDC'])
 
     # personalization experiment
     personalized_config['original_model'] = original_model_file_name
@@ -537,18 +537,19 @@ def main():
 
             finetuning_times = []
 
-            for j in range(10):
+            for j in range(3):
 
                 reset_config(personalized_config, data_size, default_lr, default_n_epochs)
 
                 personalized_config["input_file"] = personalized_config['original_model']
-                personalized_config["output_file"] = "temp" + str(j) + ".pt"
+                personalized_config["output_file"] = "temp_" + str(j) + ".pt"
 
                 print("\n< train further only with personalized data >")
                 finetuning_times.append(train(personalized_config))
 
             print(TEXT_COLOR['OKGREEN'])
             print('\tfor data size : ', data_size)
+            print('\finetuning_times : ', str(np.array(finetuning_times) * 1000))
             print('\taverage finetuning_times : ', int(round(np.average(finetuning_times) * 1000)))
             print(TEXT_COLOR['ENDC'])
 
