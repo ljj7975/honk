@@ -57,7 +57,8 @@ for exp in os.listdir(result_dir):
                 original[person][key].append(results[key]['original'])
                 personalized[person][key].append(results[key]['personlized'])
 
-line_color = ['#fd0000', '#D6B748', '#45A320', '#5ADABE', '#4867D6']
+line_color = [ '#abdda4', '#fdae61', '#2b83ba', '#ffffbf', '#d7191c']
+
 
 def mean_confidence_interval(data, confidence=0.95):
     a = 1.0 * np.array(data)
@@ -109,7 +110,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format(name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
 
     axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
     axis.set_ylim(0.7, 1.0)
