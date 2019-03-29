@@ -190,7 +190,9 @@ def train(config):
                 # print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
-    return total_time
+                
+    return evaluate(config, model)
+    # return total_time
 
 def evaluate_personalization(base_config, personalized_config, acc_map, personalized_acc=None):
     base_acc = evaluate(base_config)
