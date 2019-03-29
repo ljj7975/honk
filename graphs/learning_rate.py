@@ -110,7 +110,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format(name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
 
     axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
     axis.set_ylim(0.7, 1.0)
