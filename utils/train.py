@@ -120,7 +120,12 @@ def train(config):
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
+
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
+    if "optimizer" in config and config["optimizer"] == "adagrad":
+        optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+    elif "optimizer" in config and config["optimizer"] == "adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -168,8 +173,11 @@ def train(config):
                 print("changing learning rate to {}".format(config["lr"][sched_idx]))
                 optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][sched_idx],
                     nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
+                if "optimizer" in config and config["optimizer"] == "adagrad":
+                    optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][sched_idx], weight_decay=config["weight_decay"])
+                elif "optimizer" in config and config["optimizer"] == "adam":
+                    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][sched_idx], weight_decay=config["weight_decay"])
             print_eval("train step #{}".format(step_no), scores, labels, loss)
-
         
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
             model.eval()
@@ -283,6 +291,40 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 
     for i in range(5, 61, 5):
         config["n_epochs"] = i
+        epochs.append(config["n_epochs"])
+        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
+        print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
+        print("~~ Model path : " + new_model_file_name + " ~~")
+        config["input_file"] = config['original_model']
+        config["output_file"] = new_model_file_name
+
+        print("\n< train further only with personalized data >")
+        personalized_acc = train(config)
+
+        config["input_file"] = new_model_file_name
+        base_config["input_file"] = new_model_file_name
+        evaluate_personalization(base_config, config, acc_map, personalized_acc)
+
+        print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+            + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    best_index = np.argmax(acc_map['personalized'])
+    return epochs, acc_map, best_index
+
+def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
+    print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
+
+    optimizers = ["adam", "adagrad"]
+    acc_map = {
+        'original':[original_acc],
+        'personalized':[personalized_acc]
+    }
+
+    print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+        + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    for i in range(2):
+        config["optimizer"] = 
         epochs.append(config["n_epochs"])
         new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
         print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
