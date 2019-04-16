@@ -314,20 +314,19 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
-    optimizers = ["adam", "adagrad"]
+    optimizers = ["SGD", "adam", "adagrad"]
     acc_map = {
         'original':[original_acc],
         'personalized':[personalized_acc]
     }
 
-    print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+    print(TEXT_COLOR['WARNING'] + '\t' + str(optimizers[0]) +' : '
         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
-    for i in range(2):
-        config["optimizer"] = 
-        epochs.append(config["n_epochs"])
-        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
-        print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
+    for i in range(1, 3, 1):
+        config["optimizer"] = optimizers[i]
+        new_model_file_name = config['model_dir'] + 'optimizer_' + str(config["size_per_word"]) + '_' + str(config["optimizer"]) + '_' + config['model_file_suffix']
+        print("\n\n~~ optimizer : " + str(config["optimizer"]) + " ~~")
         print("~~ Model path : " + new_model_file_name + " ~~")
         config["input_file"] = config['original_model']
         config["output_file"] = new_model_file_name
@@ -339,11 +338,11 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
         base_config["input_file"] = new_model_file_name
         evaluate_personalization(base_config, config, acc_map, personalized_acc)
 
-        print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+        print(TEXT_COLOR['WARNING'] + '\t' + str(optimizers[i]) +' : '
             + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
-    return epochs, acc_map, best_index
+    return optimizers, acc_map, best_index
 
 def reset_config(config, size_per_word, lr, n_epochs):
     config["size_per_word"] = size_per_word
@@ -569,6 +568,24 @@ def main():
             print('epochs = ', epochs)
             print('original = ', epochs_acc_map['original'])
             print('personalized = ', epochs_acc_map['personalized'])
+            print(TEXT_COLOR['ENDC'])
+
+    elif personalized_config["exp_type"] == "optimizer":
+
+        for i in range(1, total_data_size + 1):
+            print(TEXT_COLOR['WARNING'])
+            print('datasize = ', i)
+            print(TEXT_COLOR['ENDC'])
+
+            reset_config(personalized_config, i, default_lr, default_n_epochs)
+            optimizers, optimizer_acc_map, best_optimizer_index = evaluate_optimizer(base_config, personalized_config, original_acc, personalized_acc)
+
+            print(TEXT_COLOR['OKGREEN'])
+            print("\n~~~~~~~~~~ best optimizer is " + str(optimizers[best_optimizer_index]) + " with acc of " + str(optimizer_acc_map['personalized'][best_optimizer_index]) + "~~~~~~")
+            print('datasize = ', i)
+            print('optimizers = ', optimizers)
+            print('original = ', optimizer_acc_map['original'])
+            print('personalized = ', optimizer_acc_map['personalized'])
             print(TEXT_COLOR['ENDC'])
 
     elif personalized_config["exp_type"] == "time":
