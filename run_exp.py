@@ -186,7 +186,7 @@ def get_optimizer(lines):
                 flag = False
     return results
 
-for i in tqdm(range(iteration)):
+for i in tqdm.tqdm(range(iteration)):
     dir_name = 'results/' + datetime.datetime.now().strftime('%m%d_%H%M%S')
     random_seed = random.randint(1,1001)
     print(i, dir_name)
