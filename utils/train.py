@@ -123,19 +123,19 @@ def train(config):
 
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
     if "optimizer" in config and config["optimizer"] == "SGD":
-        print("SGD", config["lr"][0])
+        print("\tSGD", config["lr"][0])
         optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0])
     if "optimizer" in config and config["optimizer"] == "adagrad":
-        print("adagrad", config["lr"][0])
+        print("\tadagrad", config["lr"][0])
         optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
         # optimizer = torch.optim.Adagrad(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "adam":
-        print("adam", config["lr"][0]*0.01)
-        optimizer = torch.optim.Adam(model.parameters(), lr=(config["lr"][0]*0.01), weight_decay=config["weight_decay"])
+        print("\tadam", config["lr"][0]*0.1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
         # optimizer = torch.optim.Adam(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "RMSprop":
-        print("RMSprop", config["lr"][0]*0.01)
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=(config["lr"][0]*0.01), weight_decay=config["weight_decay"])
+        print("\tRMSprop", config["lr"][0]*0.1)
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
         # optimizer = torch.optim.RMSprop(model.parameters())
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
