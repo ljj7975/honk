@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as data
 
-from . import model as mod
+import utils.model as mod
 from .manage_audio import AudioPreprocessor
 
 TEXT_COLOR = {
@@ -126,6 +126,8 @@ def train(config):
         optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
     elif "optimizer" in config and config["optimizer"] == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+    elif "optimizer" in config and config["optimizer"] == "RMSprop":
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -314,16 +316,16 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
-    optimizers = ["SGD", "adam", "adagrad"]
+    optimizers = ["RMSprop", "SGD", "adam", "adagrad"]
     acc_map = {
         'original':[original_acc],
         'personalized':[personalized_acc]
     }
 
-    print(TEXT_COLOR['WARNING'] + '\t' + str(optimizers[0]) +' : '
+    print(TEXT_COLOR['WARNING'] + '\t' + 'SGD : '
         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
-    for i in range(1, 3, 1):
+    for i in range(4):
         config["optimizer"] = optimizers[i]
         new_model_file_name = config['model_dir'] + 'optimizer_' + str(config["size_per_word"]) + '_' + str(config["optimizer"]) + '_' + config['model_file_suffix']
         print("\n\n~~ optimizer : " + str(config["optimizer"]) + " ~~")
@@ -380,7 +382,7 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
     base_config = builder.config_from_argparse(parser)
 
     builder = ConfigBuilder(
@@ -389,15 +391,15 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
     personalized_config = builder.config_from_argparse(parser)
 
     base_config["model_class"] = mod_cls
-    base_config['model_dir'] = 'model/'
+    base_config['model_dir'] = 'trained/'
     base_config["personalized"] = False
 
     personalized_config["model_class"] = mod_cls
-    personalized_config['model_dir'] = 'model/'
+    personalized_config['model_dir'] = 'trained/'
     personalized_config["personalized"] = True
     personalized_config["keep_original"] = False
 
@@ -418,7 +420,7 @@ def main():
         train(base_config)
     else:
         # reusing pretrained base model
-        original_model_file_name = "model/res8-narrow.pt"
+        original_model_file_name = "trained/res8-narrow.pt"
 
     base_config["input_file"] = original_model_file_name
     personalized_config["input_file"] = original_model_file_name
