@@ -580,8 +580,8 @@ def main():
             print(TEXT_COLOR['ENDC'])
 
     elif personalized_config["exp_type"] == "optimizer":
-
-        for i in range(1, total_data_size + 1):
+        
+        for i in range(1, total_data_size + 1, 2):
             print(TEXT_COLOR['WARNING'])
             print('datasize = ', i)
             print(TEXT_COLOR['ENDC'])
