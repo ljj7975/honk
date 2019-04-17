@@ -125,14 +125,14 @@ def train(config):
     if "optimizer" in config and config["optimizer"] == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0])
     if "optimizer" in config and config["optimizer"] == "adagrad":
-        #optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
-        optimizer = torch.optim.Adagrad(model.parameters())
+        optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.Adagrad(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "adam":
-        #optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
-        optimizer = torch.optim.Adam(model.parameters())
+        optimizer = torch.optim.Adam(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.Adam(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "RMSprop":
-        #optimizer = torch.optim.RMSprop(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
-        optimizer = torch.optim.RMSprop(model.parameters())
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.RMSprop(model.parameters())
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -322,7 +322,7 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
     optimizers = ["SGD", "RMSprop", "adam", "adagrad"]
-    optimizers = ["SGD", "RMSprop"]
+    optimizers = ["RMSprop", "adam", "adagrad"]
 
     acc_map = {
         'original':[],
