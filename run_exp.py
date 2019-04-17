@@ -152,7 +152,7 @@ def get_optimizer(lines):
 
     flag = False
     data_size = None
-    epochs = None
+    optimizer = None
     original = None
     personlized = None
 
