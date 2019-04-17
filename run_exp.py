@@ -10,9 +10,9 @@ import sys
 
 iteration = int(sys.argv[1])
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval --exp_type time'
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /home/public/kevin_branch/speech_commands --seed {0} --gpu_no 0 --personalized --personalized_data_folder /home/public/kevin_branch/personalized_speech_dataset/{1} --type eval --exp_type optimizer'
 
-people = ["brandon", "jay", "jack", "max"]
+people = ["brandon", "jay", "jack", "max", "kevin"]
 
 def search(regex, line, index):
     out = None
@@ -147,6 +147,44 @@ def get_epochs(lines):
                 flag = False
     return results
 
+def get_optimizer(lines):
+    results = {}
+
+    flag = False
+    data_size = None
+    epochs = None
+    original = None
+    personlized = None
+
+    for line in lines:
+        if not flag and "~~~~~~~~~ best optimizer is " in line:
+            flag = True
+            data_size = None
+            optimizer = None
+            original = None
+            personlized = None
+        else:
+            if not data_size:
+                data_size = search('datasize = (.*)', line, 1)
+
+            if not optimizer:
+                optimizer = search('optimizers = (.*)', line, 1)
+
+            if not original:
+                original = search('original = (.*)', line, 1)
+
+            if not personlized:
+                personlized = search('personalized = (.*)', line, 1)
+
+            if data_size and optimizer and original and personlized:
+                results[data_size] = {
+                    "optimizer" : ast.literal_eval(optimizer),
+                    "original" : ast.literal_eval(original),
+                    "personlized" : ast.literal_eval(personlized)
+                }
+                flag = False
+    return results
+
 for i in range(iteration):
     dir_name = 'results/' + datetime.datetime.now().strftime('%m%d_%H%M%S')
     random_seed = random.randint(1,1001)
@@ -162,7 +200,8 @@ for i in range(iteration):
             "command" : command,
             "setting" : get_defaults(outputs),
             "lr" : get_learning_rate(outputs),
-            "epochs" : get_epochs(outputs)
+            "epochs" : get_epochs(outputs),
+            "optimizer" : get_optimizer(outputs),
         }
 
         if not os.path.exists(dir_name):

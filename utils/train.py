@@ -122,12 +122,17 @@ def train(config):
         model.cuda()
 
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
+    if "optimizer" in config and config["optimizer"] == "SGD":
+        optimizer = torch.optim.SGD(model.parameters())
     if "optimizer" in config and config["optimizer"] == "adagrad":
-        optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        #optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        optimizer = torch.optim.Adagrad(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        #optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        optimizer = torch.optim.Adam(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "RMSprop":
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        #optimizer = torch.optim.RMSprop(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        optimizer = torch.optim.RMSprop(model.parameters())
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -154,7 +159,7 @@ def train(config):
     total_time = 0
 
     for epoch_idx in range(config["n_epochs"]):
-        
+
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
             optimizer.zero_grad()
@@ -180,7 +185,7 @@ def train(config):
                 elif "optimizer" in config and config["optimizer"] == "adam":
                     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][sched_idx], weight_decay=config["weight_decay"])
             print_eval("train step #{}".format(step_no), scores, labels, loss)
-        
+
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
             model.eval()
             accs = []
@@ -200,7 +205,7 @@ def train(config):
                 # print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
-                
+
     return evaluate(config, model)
     # return total_time
 
@@ -316,14 +321,12 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
-    optimizers = ["RMSprop", "SGD", "adam", "adagrad"]
-    acc_map = {
-        'original':[original_acc],
-        'personalized':[personalized_acc]
-    }
+    optimizers = ["SGD", "RMSprop", "adam", "adagrad"]
 
-    print(TEXT_COLOR['WARNING'] + '\t' + 'SGD : '
-        + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+    acc_map = {
+        'original':[],
+        'personalized':[]
+    }
 
     for i in range(4):
         config["optimizer"] = optimizers[i]
@@ -581,6 +584,10 @@ def main():
 
             reset_config(personalized_config, i, default_lr, default_n_epochs)
             optimizers, optimizer_acc_map, best_optimizer_index = evaluate_optimizer(base_config, personalized_config, original_acc, personalized_acc)
+
+            print(optimizers)
+            print(optimizer_acc_map)
+            print(best_optimizer_index)
 
             print(TEXT_COLOR['OKGREEN'])
             print("\n~~~~~~~~~~ best optimizer is " + str(optimizers[best_optimizer_index]) + " with acc of " + str(optimizer_acc_map['personalized'][best_optimizer_index]) + "~~~~~~")
