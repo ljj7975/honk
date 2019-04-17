@@ -123,7 +123,7 @@ def train(config):
 
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
     if "optimizer" in config and config["optimizer"] == "SGD":
-        optimizer = torch.optim.SGD(model.parameters())
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0])
     if "optimizer" in config and config["optimizer"] == "adagrad":
         #optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
         optimizer = torch.optim.Adagrad(model.parameters())
@@ -322,6 +322,7 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
     optimizers = ["SGD", "RMSprop", "adam", "adagrad"]
+    optimizers = ["SGD", "RMSprop"]
 
     acc_map = {
         'original':[],
