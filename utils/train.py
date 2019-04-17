@@ -329,7 +329,7 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
         'personalized':[]
     }
 
-    for i in range(4):
+    for i in range(len(optimizers)):
         config["optimizer"] = optimizers[i]
         new_model_file_name = config['model_dir'] + 'optimizer_' + str(config["size_per_word"]) + '_' + str(config["optimizer"]) + '_' + config['model_file_suffix']
         print("\n\n~~ optimizer : " + str(config["optimizer"]) + " ~~")
