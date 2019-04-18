@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
-fig, axs = plt.subplots(2, 2, figsize=[7,7])
+fig, axs = plt.subplots(5, 1, figsize=[6,24])
 
 axs_mapping = {
-    "brandon" : axs[0][0],
-    "jay" : axs[0][1],
-    "jack" : axs[1][0],
-    "max" : axs[1][1]
+    "brandon" : axs[0],
+    "jay" : axs[1],
+    "jack" : axs[2],
+    "max" : axs[3],
+    "kevin" : axs[4]
 }
 
 per_acc = {}
@@ -19,17 +20,20 @@ original = {
     "brandon" : {'1':[], '3':[], '5':[]},
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
-    "max" : {'1':[], '3':[], '5':[]}
+    "max" : {'1':[], '3':[], '5':[]},
+    "kevin" : {'1':[], '3':[], '5':[]}
 }
 
 personalized = {
     "brandon" : {'1':[], '3':[], '5':[]},
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
-    "max" : {'1':[], '3':[], '5':[]}
+    "max" : {'1':[], '3':[], '5':[]},
+    "kevin" : {'1':[], '3':[], '5':[]}
 }
 
-result_dir = "../results"
+
+result_dir = "../temp"
 metric = "lr"
 learning_rate = None
 base_model_acc = None
@@ -93,7 +97,8 @@ name_mapping = {
     "BRANDON":"A",
     "JAY":"B",
     "JACK":"C",
-    "MAX":"D"
+    "MAX":"D",
+    "KEVIN":"E"
 }
 
 def plot_mean_and_CI(axis, mean, lb, ub, fmt=None, color_mean=None, color_shading=None, label=None):
@@ -139,7 +144,7 @@ fig.legend(legends,     # The line objects
            )
 
 
-fig.subplots_adjust(bottom=0.15, wspace=0.38, hspace=0.38, right=0.96, left=0.11)
+fig.subplots_adjust(bottom=0.08, top=0.93, wspace=0.18, hspace=0.55, right=0.95, left=0.15)
 # fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
 fig.suptitle('Learning Rate\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
 
