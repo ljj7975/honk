@@ -33,11 +33,10 @@ personalized = {
 }
 
 
-result_dir = "../temp"
-metric = "lr"
+result_dir = "../results"
+metric = "optimizer"
 learning_rate = None
 base_model_acc = None
-lr = None
 
 print("total exp : ", len(os.listdir(result_dir)))
 for exp in os.listdir(result_dir):
@@ -57,7 +56,6 @@ for exp in os.listdir(result_dir):
             results = summary[metric]
 
             for key in results.keys():
-                lr = results[key]['lr']
                 original[person][key].append(results[key]['original'])
                 personalized[person][key].append(results[key]['personlized'])
 
@@ -92,6 +90,7 @@ def process_data(arr):
 
 legends = []
 x_ticks = np.arange(1,5)
+optimizers = ["RMSprop", "adam", "adagrad", "SGD"]
 
 name_mapping = {
     "BRANDON":"A",
@@ -101,12 +100,32 @@ name_mapping = {
     "KEVIN":"E"
 }
 
-def plot_mean_and_CI(axis, mean, lb, ub, fmt=None, color_mean=None, color_shading=None, label=None):
+acc_mapping = {
+    "BRANDON":"90.21",
+    "JAY":"88.75",
+    "JACK":"80.42",
+    "MAX":"77.71",
+    "KEVIN":"92.5"
+}
+
+width = 0.15
+
+loc = (np.arange(6) * width) - (width * 3)
+
+def plot_mean_and_CI(ind, axis, mean, lb, ub, fmt=None, color_mean=None, color_shading=None, label=None):
     # plot the shaded range of the confidence intervals
-    axis.fill_between(x_ticks, ub, lb, color=color_shading, alpha=.2)
+    # axis.fill_between(x_ticks, ub, lb, color=color_shading, alpha=.2)
 
     # plot the mean on top
-    return axis.plot(x_ticks, mean, fmt, color=color_mean, label=label)
+    # return axis.plot(x_ticks, mean, fmt, color=color_mean, label=label)
+    legend = None
+    if ind % 2 == 0:
+        # legend = axis.bar(x_ticks-0.15, mean, 0.30,  color=color_mean, label=label)
+        legend = axis.bar(x_ticks+loc[ind], mean, width, color=color_mean, alpha=.5, label=label)
+    else:
+        # legend = axis.bar(x_ticks+0.15, mean, 0.35,  color=color_mean, label=label)
+        legend = axis.bar(x_ticks+loc[ind], mean, width, color=color_mean, label=label)
+    return legend
 
 for person, axis in axs_mapping.items():
     processed_original = []
@@ -115,11 +134,11 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], acc_mapping[person.upper()]))
 
-    axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
-    axis.set_ylim(0.7, 1.0)
-    axis.grid()
+    axis.set(xlabel='optimizer', ylabel='accuracy', xticks=x_ticks, xticklabels=optimizers)
+    axis.set_ylim(0.8, 1.0)
+    # axis.grid()
 
     for i in original[person].keys():
         original_mean, original_lower, original_upper = process_data(original_dict[i])
@@ -127,9 +146,9 @@ for person, axis in axs_mapping.items():
         personalized_mean, personalized_lower, personalized_upper = process_data(personalized_dict[i])
         personalized_error = [personalized_lower, personalized_upper]
 
-        original_line = plot_mean_and_CI(axis, original_mean, original_lower, original_upper, fmt='--', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='original')
+        original_line = plot_mean_and_CI(int(i)-1, axis, original_mean, original_lower, original_upper, fmt='--', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='original')
 
-        personalized_line = plot_mean_and_CI(axis, personalized_mean, personalized_lower, personalized_upper, fmt='-', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='personalized')
+        personalized_line = plot_mean_and_CI(int(i), axis, personalized_mean, personalized_lower, personalized_upper, fmt='-', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='personalized')
 
 #         original_line = axis.plot(x_ticks, original_mean, '--', color=line_color[int(i)-1], label='original')
 #         personalized_line = axis.plot(x_ticks, personalized_mean, '-', color=line_color[int(i)-1], label='personalized')
@@ -138,7 +157,7 @@ for person, axis in axs_mapping.items():
         legends.append(personalized_line)
 
 fig.legend(legends,     # The line objects
-           labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels for each line
+           labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels
            loc=8,  # Position of legend
            ncol=3
            )
@@ -146,7 +165,7 @@ fig.legend(legends,     # The line objects
 
 fig.subplots_adjust(bottom=0.05, top=0.94, wspace=0.18, hspace=0.25, right=0.95, left=0.15)
 # fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
-fig.suptitle('Learning Rate\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
+fig.suptitle('Optimizer\nbase model accuracy - {0} %'.format(91.26))
 
-fig.savefig("learning_rate.png")
+fig.savefig("optimizer.png")
 # plt.show()
