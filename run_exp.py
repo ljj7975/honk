@@ -11,7 +11,7 @@ import tqdm
 
 iteration = int(sys.argv[1])
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /home/public/kevin_branch/speech_commands --seed {0} --gpu_no 0 --personalized --personalized_data_folder /home/public/kevin_branch/personalized_speech_dataset/{1} --type eval --exp_type optimizer'
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /home/public/kevin_branch/speech_commands --seed {0} --gpu_no 0 --personalized --personalized_data_folder /home/public/kevin_branch/personalized_speech_dataset/{1} --type eval --exp_type all'
 
 people = ["brandon", "jay", "jack", "max", "kevin"]
 
@@ -30,6 +30,7 @@ def get_defaults(lines):
     epochs = None
     original_acc = None
     personlized_acc = None
+    optimizers = None
 
     for line in lines:
         if not base_model:
@@ -53,6 +54,10 @@ def get_defaults(lines):
         if not personlized_acc:
             personlized_acc = search('personalized - (.*)', line, 1)
 
+        if not optimizers:
+            optimizers = search('optimizers :  (.*)', line, 1)
+            optimizers = optimizers.split(' ')
+
     output = {
         "base_model" : base_model,
         "dataset" : dataset,
@@ -60,7 +65,8 @@ def get_defaults(lines):
         "lr" : float(lr),
         "epochs" : int(epochs),
         "original_acc" : float(original_acc),
-        "personlized_acc" : float(personlized_acc)
+        "personlized_acc" : float(personlized_acc),
+        "optimizers" : optimizers
     }
 
     for key, value in output.items():
@@ -70,13 +76,14 @@ def get_defaults(lines):
     return output
 
 
-def get_learning_rate(lines):
+def get_learning_rate(target_opt, lines):
     results = {}
 
     flag = False
     data_size = None
     lr = None
     original = None
+    optimizer = None
     personlized = None
 
     for line in lines:
@@ -85,10 +92,14 @@ def get_learning_rate(lines):
             data_size = None
             lr = None
             original = None
+            optimizer = None
             personlized = None
         else:
             if not data_size:
                 data_size = search('datasize = (.*)', line, 1)
+
+            if not optimizer:
+                optimizer = search('optimizer = (.*)', line, 1)
 
             if not lr:
                 lr = search('lr = (.*)', line, 1)
@@ -99,24 +110,24 @@ def get_learning_rate(lines):
             if not personlized:
                 personlized = search('personalized = (.*)', line, 1)
 
-            # print(line, data_size, lr)
-
             if data_size and lr and original and personlized:
-                results[data_size] = {
-                    "lr" : ast.literal_eval(lr),
-                    "original" : ast.literal_eval(original),
-                    "personlized" : ast.literal_eval(personlized)
-                }
+                if optimizer == target_opt:
+                    results[data_size] = {
+                        "lr" : ast.literal_eval(lr),
+                        "original" : ast.literal_eval(original),
+                        "personlized" : ast.literal_eval(personlized)
+                    }
                 flag = False
     return results
 
-def get_epochs(lines):
+def get_epochs(target_opt, lines):
     results = {}
 
     flag = False
     data_size = None
     epochs = None
     original = None
+    optimizer = None
     personlized = None
 
     for line in lines:
@@ -125,10 +136,14 @@ def get_epochs(lines):
             data_size = None
             epochs = None
             original = None
+            optimizer = None
             personlized = None
         else:
             if not data_size:
                 data_size = search('datasize = (.*)', line, 1)
+
+            if not optimizer:
+                optimizer = search('optimizer = (.*)', line, 1)
 
             if not epochs:
                 epochs = search('epochs = (.*)', line, 1)
@@ -140,49 +155,12 @@ def get_epochs(lines):
                 personlized = search('personalized = (.*)', line, 1)
 
             if data_size and epochs and original and personlized:
-                results[data_size] = {
-                    "epochs" : ast.literal_eval(epochs),
-                    "original" : ast.literal_eval(original),
-                    "personlized" : ast.literal_eval(personlized)
-                }
-                flag = False
-    return results
-
-def get_optimizer(lines):
-    results = {}
-
-    flag = False
-    data_size = None
-    optimizer = None
-    original = None
-    personlized = None
-
-    for line in lines:
-        if not flag and "~~~~~~~~~ best optimizer is " in line:
-            flag = True
-            data_size = None
-            optimizer = None
-            original = None
-            personlized = None
-        else:
-            if not data_size:
-                data_size = search('datasize = (.*)', line, 1)
-
-            if not optimizer:
-                optimizer = search('optimizers = (.*)', line, 1)
-
-            if not original:
-                original = search('original = (.*)', line, 1)
-
-            if not personlized:
-                personlized = search('personalized = (.*)', line, 1)
-
-            if data_size and optimizer and original and personlized:
-                results[data_size] = {
-                    "optimizer" : ast.literal_eval(optimizer),
-                    "original" : ast.literal_eval(original),
-                    "personlized" : ast.literal_eval(personlized)
-                }
+                if optimizer == target_opt:
+                    results[data_size] = {
+                        "epochs" : ast.literal_eval(epochs),
+                        "original" : ast.literal_eval(original),
+                        "personlized" : ast.literal_eval(personlized)
+                    }
                 flag = False
     return results
 
@@ -197,20 +175,24 @@ for i in tqdm.tqdm(range(iteration)):
         sys.stdout.flush()
         result = subprocess.run(command.split(), stdout=subprocess.PIPE)
         outputs = result.stdout.decode("utf-8").split("\n")
-        results = {
+
+        summary = {
             "command" : command,
             "setting" : get_defaults(outputs),
-            "lr" : get_learning_rate(outputs),
-            "epochs" : get_epochs(outputs),
-            "optimizer" : get_optimizer(outputs),
         }
+
+        for optimizer in summary["setting"]["optimizers"]:
+            summary[optimizer] = {
+                "lr" : get_learning_rate(optimizer, outputs),
+                "epochs" : get_epochs(optimizer, outputs)
+                }
 
         if not os.path.exists(dir_name):
             os.makedirs(dir_name)
 
         summary_file = os.path.join(dir_name, person + '_summary.txt')
         with open(summary_file, 'w') as file:
-            pprint.pprint(results, stream=file)
+            pprint.pprint(summary, stream=file)
 
         raw_file = os.path.join(dir_name, person + '_raw.txt')
         with open(raw_file, 'w') as file:

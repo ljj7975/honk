@@ -121,22 +121,15 @@ def train(config):
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
     if "optimizer" in config and config["optimizer"] == "SGD":
-        print("\tSGD", config["lr"][0])
-        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0])
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"], momentum=config["momentum"])
     if "optimizer" in config and config["optimizer"] == "adagrad":
-        print("\tadagrad", config["lr"][0])
         optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
-        # optimizer = torch.optim.Adagrad(model.parameters())
     elif "optimizer" in config and config["optimizer"] == "adam":
-        print("\tadam", config["lr"][0]*0.1)
-        optimizer = torch.optim.Adam(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
-        # optimizer = torch.optim.Adam(model.parameters())
+        optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
     elif "optimizer" in config and config["optimizer"] == "RMSprop":
-        print("\tRMSprop", config["lr"][0]*0.1)
-        optimizer = torch.optim.RMSprop(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
-        # optimizer = torch.optim.RMSprop(model.parameters())
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"], momentum=config["momentum"])
+
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -302,8 +295,8 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 
     hop = 5
     prev_model = config['original_model']
-    for i in range((5, 61, hop):
-        config["n_epochs"] = i
+    for i in range(5, 61, hop):
+        config["n_epochs"] = hop
         epochs.append(i)
         new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(i) + '_' + config['model_file_suffix']
 
@@ -325,25 +318,6 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
             + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
         prev_model = new_model_file_name
-
-    # for i in range(5, 61, 5):
-    #     config["n_epochs"] = i
-    #     epochs.append(config["n_epochs"])
-    #     new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
-    #     print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
-    #     print("~~ Model path : " + new_model_file_name + " ~~")
-    #     config["input_file"] = config['original_model']
-    #     config["output_file"] = new_model_file_name
-    #
-    #     print("\n< train further only with personalized data >")
-    #     personalized_acc = train(config)
-    #
-    #     config["input_file"] = new_model_file_name
-    #     base_config["input_file"] = new_model_file_name
-    #     evaluate_personalization(base_config, config, acc_map, personalized_acc)
-    #
-    #     print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
-    #         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return epochs, acc_map, best_index
@@ -416,6 +390,8 @@ def main():
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
     parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument('--optimizers', nargs='+', type=str, default=["RMSprop", "adam", "adagrad", "SGD"])
+
     base_config = builder.config_from_argparse(parser)
 
     builder = ConfigBuilder(
@@ -424,15 +400,15 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "all", "time"], default="all", type=str)
     personalized_config = builder.config_from_argparse(parser)
 
     base_config["model_class"] = mod_cls
-    base_config['model_dir'] = 'trained/'
+    base_config['model_dir'] = 'model/'
     base_config["personalized"] = False
 
     personalized_config["model_class"] = mod_cls
-    personalized_config['model_dir'] = 'trained/'
+    personalized_config['model_dir'] = 'model/'
     personalized_config["personalized"] = True
     personalized_config["keep_original"] = False
 
@@ -453,7 +429,7 @@ def main():
         train(base_config)
     else:
         # reusing pretrained base model
-        original_model_file_name = "trained/res8-narrow.pt"
+        original_model_file_name = "model/res8-narrow.pt"
 
     base_config["input_file"] = original_model_file_name
     personalized_config["input_file"] = original_model_file_name
@@ -489,169 +465,93 @@ def main():
     personalized_config['original_model'] = original_model_file_name
 
     print('experiment type : ', personalized_config["exp_type"])
+    print('optimizers : ', ' '.join(base_config['optimizers']))
 
-    if personalized_config["exp_type"] == "all":
+    for optimizer in base_config['optimizers']:
+        personalized_config["optimizer"] = optimizer
 
-        # # Data Size
-        # print(TEXT_COLOR['FAIL'])
-        # print('EXP_TYPE : DATA_SIZE')
-        # print(TEXT_COLOR['ENDC'])
-
-        # reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-        # data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config, original_acc, personalized_acc)
-
-        # best_data_size = data_size[best_data_size_index]
-        # best_data_size_acc = data_size_acc_map['personalized'][best_data_size_index]
-
-        # print(TEXT_COLOR['OKGREEN'])
-        # print("\n~~~~~~~~~~ best data size is " + str(best_data_size) + " with acc of " + str(best_data_size_acc) + "~~~~~~")
-        # print('datasize = ', data_size)
-        # print('original = ', data_size_acc_map['original'])
-        # print('personalized = ', data_size_acc_map['personalized'])
-        # print(TEXT_COLOR['ENDC'])
-
-        # Learning Rate
-        print(TEXT_COLOR['FAIL'])
-        print('EXP_TYPE : LEARNING RATE')
+        print(TEXT_COLOR['WARNING'])
+        print('optimizer = ', optimizer)
         print(TEXT_COLOR['ENDC'])
 
-        for i in range(1, total_data_size + 1, 2):
-            print(TEXT_COLOR['WARNING'])
-            print('datasize = ', i)
+
+        if personalized_config["exp_type"] == "all" or personalized_config["exp_type"] == "lr":
+
+            # Learning Rate
+            print(TEXT_COLOR['FAIL'])
+            print('EXP_TYPE : LEARNING RATE')
             print(TEXT_COLOR['ENDC'])
 
-            reset_config(personalized_config, i, default_lr, default_n_epochs)
-            lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
+            for i in range(1, total_data_size + 1, 2):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
 
-            best_lr = lr[best_lr_index]
-            best_lr_acc = lr_acc_map['personalized'][best_lr_index]
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
-            print('datasize = ', i)
-            print('lr = ', lr)
-            print('original = ', lr_acc_map['original'])
-            print('personalized = ', lr_acc_map['personalized'])
+                best_lr = lr[best_lr_index]
+                best_lr_acc = lr_acc_map['personalized'][best_lr_index]
+
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best learning rate is " + str(best_lr) + " with acc of " + str(best_lr_acc) + "~~~~~~")
+                print('optimizer = ', optimizer)
+                print('datasize = ', i)
+                print('lr = ', lr)
+                print('original = ', lr_acc_map['original'])
+                print('personalized = ', lr_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
+
+        if personalized_config["exp_type"] == "all" or personalized_config["exp_type"] == "epochs":
+
+            # Epochs
+            print(TEXT_COLOR['FAIL'])
+            print('EXP_TYPE : EPOCHS')
             print(TEXT_COLOR['ENDC'])
 
-        # Epochs
-        print(TEXT_COLOR['FAIL'])
-        print('EXP_TYPE : EPOCHS')
-        print(TEXT_COLOR['ENDC'])
+            for i in range(1, total_data_size + 1, 2):
+                print(TEXT_COLOR['WARNING'])
+                print('datasize = ', i)
+                print(TEXT_COLOR['ENDC'])
 
-        for i in range(1, total_data_size + 1, 2):
-            print(TEXT_COLOR['WARNING'])
-            print('datasize = ', i)
-            print(TEXT_COLOR['ENDC'])
+                reset_config(personalized_config, i, default_lr, default_n_epochs)
+                epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config, original_acc, personalized_acc)
 
-            reset_config(personalized_config, i, default_lr, default_n_epochs)
-            epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config, original_acc, personalized_acc)
+                best_epochs = epochs[best_epochs_index]
+                best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
 
-            best_epochs = epochs[best_epochs_index]
-            best_epochs_acc = epochs_acc_map['personalized'][best_epochs_index]
+                print(TEXT_COLOR['OKGREEN'])
+                print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
+                print('optimizer = ', optimizer)
+                print('datasize = ', i)
+                print('epochs = ', epochs)
+                print('original = ', epochs_acc_map['original'])
+                print('personalized = ', epochs_acc_map['personalized'])
+                print(TEXT_COLOR['ENDC'])
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best number of epochs is " + str(best_epochs) + " with acc of " + str(best_epochs_acc) + "~~~~~~")
-            print('datasize = ', i)
-            print('epochs = ', epochs)
-            print('original = ', epochs_acc_map['original'])
-            print('personalized = ', epochs_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
+    # if personalized_config["exp_type"] == "time":
+    #     default_lr = [0.01]
+    #     default_n_epochs = 50
+    #     for i in range(3):
+    #         data_size = i * 2 + 1
 
-    elif personalized_config["exp_type"] == "data_size":
-        reset_config(personalized_config, default_size_per_word, default_lr, default_n_epochs)
-        data_size, data_size_acc_map, best_data_size_index = evaluate_data_size(base_config, personalized_config, original_acc, personalized_acc)
+    #         finetuning_times = []
 
-        print(TEXT_COLOR['OKGREEN'])
-        print("\n~~~~~~~~~~ best data size is " + str(data_size[best_data_size_index]) + " with acc of " + str(data_size_acc_map['personalized'][best_data_size_index]) + "~~~~~~")
-        print('datasize = ', data_size)
-        print('original = ', data_size_acc_map['original'])
-        print('personalized = ', data_size_acc_map['personalized'])
-        print(TEXT_COLOR['ENDC'])
+    #         for j in range(10):
 
-    elif personalized_config["exp_type"] == "lr":
+    #             reset_config(personalized_config, data_size, default_lr, default_n_epochs)
 
-        for i in range(1, total_data_size + 1):
-            print(TEXT_COLOR['WARNING'])
-            print('datasize = ', i)
-            print(TEXT_COLOR['ENDC'])
+    #             personalized_config["input_file"] = personalized_config['original_model']
+    #             personalized_config["output_file"] = "temp_" + str(j) + ".pt"
 
-            reset_config(personalized_config, i, default_lr, default_n_epochs)
-            lr, lr_acc_map, best_lr_index = evaluate_lr(base_config, personalized_config)
+    #             print("\n iteration ", j)
+    #             finetuning_times.append(train(personalized_config))
 
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best learning rate is " + str(lr[best_lr_index]) + " with acc of " + str(lr_acc_map['personalized'][best_lr_index]) + "~~~~~~")
-            print('datasize = ', i)
-            print('lr = ', lr)
-            print('original = ', lr_acc_map['original'])
-            print('personalized = ', lr_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
-
-    elif personalized_config["exp_type"] == "epochs":
-
-        for i in range(1, total_data_size + 1):
-            print(TEXT_COLOR['WARNING'])
-            print('datasize = ', i)
-            print(TEXT_COLOR['ENDC'])
-
-            reset_config(personalized_config, i, default_lr, default_n_epochs)
-            epochs, epochs_acc_map, best_epochs_index = evaluate_epochs(base_config, personalized_config, original_acc, personalized_acc)
-
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best number of epochs is " + str(epochs[best_epochs_index]) + " with acc of " + str(epochs_acc_map['personalized'][best_epochs_index]) + "~~~~~~")
-            print('datasize = ', i)
-            print('epochs = ', epochs)
-            print('original = ', epochs_acc_map['original'])
-            print('personalized = ', epochs_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
-
-    elif personalized_config["exp_type"] == "optimizer":
-
-        for i in range(1, total_data_size + 1, 2):
-            print(TEXT_COLOR['WARNING'])
-            print('datasize = ', i)
-            print(TEXT_COLOR['ENDC'])
-
-            reset_config(personalized_config, i, default_lr, default_n_epochs)
-            optimizers, optimizer_acc_map, best_optimizer_index = evaluate_optimizer(base_config, personalized_config, original_acc, personalized_acc)
-
-            print(optimizers)
-            print(optimizer_acc_map)
-            print(best_optimizer_index)
-
-            print(TEXT_COLOR['OKGREEN'])
-            print("\n~~~~~~~~~~ best optimizer is " + str(optimizers[best_optimizer_index]) + " with acc of " + str(optimizer_acc_map['personalized'][best_optimizer_index]) + "~~~~~~")
-            print('datasize = ', i)
-            print('optimizers = ', optimizers)
-            print('original = ', optimizer_acc_map['original'])
-            print('personalized = ', optimizer_acc_map['personalized'])
-            print(TEXT_COLOR['ENDC'])
-
-    elif personalized_config["exp_type"] == "time":
-        default_lr = [0.01]
-        default_n_epochs = 50
-
-
-        for i in range(3):
-            data_size = i * 2 + 1
-
-            finetuning_times = []
-
-            for j in range(10):
-
-                reset_config(personalized_config, data_size, default_lr, default_n_epochs)
-
-                personalized_config["input_file"] = personalized_config['original_model']
-                personalized_config["output_file"] = "temp_" + str(j) + ".pt"
-
-                print("\n iteration ", j)
-                finetuning_times.append(train(personalized_config))
-
-            print(TEXT_COLOR['OKGREEN'])
-            print('\tfor data size : ', data_size)
-            print('\finetuning_times : ', str(np.array(finetuning_times) * 1000))
-            print('\taverage finetuning_times : ', int(round(np.average(finetuning_times) * 1000)))
-            print(TEXT_COLOR['ENDC'])
+    #         print(TEXT_COLOR['OKGREEN'])
+    #         print('\tfor data size : ', data_size)
+    #         print('\finetuning_times : ', str(np.array(finetuning_times) * 1000))
+    #         print('\taverage finetuning_times : ', int(round(np.average(finetuning_times) * 1000)))
+    #         print(TEXT_COLOR['ENDC'])
 
 if __name__ == "__main__":
     main()
