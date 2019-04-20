@@ -101,11 +101,11 @@ name_mapping = {
 }
 
 acc_mapping = {
-    "BRANDON":"90.21",
+    "BRANDON":"89.79",
     "JAY":"88.75",
-    "JACK":"80.42",
-    "MAX":"77.71",
-    "KEVIN":"92.5"
+    "JACK":"80.83",
+    "MAX":"78.12",
+    "KEVIN":"91.67"
 }
 
 width = 0.15
@@ -165,7 +165,7 @@ fig.legend(legends,     # The line objects
 
 fig.subplots_adjust(bottom=0.05, top=0.94, wspace=0.18, hspace=0.25, right=0.95, left=0.15)
 # fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
-fig.suptitle('Optimizer\nbase model accuracy - {0} %'.format(91.26))
+fig.suptitle('Optimizer\nbase model accuracy - {0} %'.format(91.36))
 
 fig.savefig("optimizer.png")
 # plt.show()
