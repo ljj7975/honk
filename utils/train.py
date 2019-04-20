@@ -300,13 +300,18 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
-    for i in range(5, 61, 5):
+    hop = 5
+    prev_model = config['original_model']
+    for i in range((5, 61, hop):
         config["n_epochs"] = i
-        epochs.append(config["n_epochs"])
-        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
-        print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
-        print("~~ Model path : " + new_model_file_name + " ~~")
-        config["input_file"] = config['original_model']
+        epochs.append(i)
+        new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(i) + '_' + config['model_file_suffix']
+
+        print("\n\n~~ number of epcohs : " + str(i) + " ~~")
+        print("~~ input model path : " + prev_model + " ~~")
+        print("~~ output Model path : " + new_model_file_name + " ~~")
+
+        config["input_file"] = prev_model
         config["output_file"] = new_model_file_name
 
         print("\n< train further only with personalized data >")
@@ -318,6 +323,27 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
 
         print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
             + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+        prev_model = new_model_file_name
+
+    # for i in range(5, 61, 5):
+    #     config["n_epochs"] = i
+    #     epochs.append(config["n_epochs"])
+    #     new_model_file_name = config['model_dir'] + 'epochs_' + str(config["size_per_word"]) + '_' + str(config["n_epochs"]) + '_' + config['model_file_suffix']
+    #     print("\n\n~~ number of epcohs : " + str(config["n_epochs"]) + " ~~")
+    #     print("~~ Model path : " + new_model_file_name + " ~~")
+    #     config["input_file"] = config['original_model']
+    #     config["output_file"] = new_model_file_name
+    #
+    #     print("\n< train further only with personalized data >")
+    #     personalized_acc = train(config)
+    #
+    #     config["input_file"] = new_model_file_name
+    #     base_config["input_file"] = new_model_file_name
+    #     evaluate_personalization(base_config, config, acc_map, personalized_acc)
+    #
+    #     print(TEXT_COLOR['WARNING'] + '\t' + str(epochs[-1]) +' : '
+    #         + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
 
     best_index = np.argmax(acc_map['personalized'])
     return epochs, acc_map, best_index
@@ -580,7 +606,7 @@ def main():
             print(TEXT_COLOR['ENDC'])
 
     elif personalized_config["exp_type"] == "optimizer":
-        
+
         for i in range(1, total_data_size + 1, 2):
             print(TEXT_COLOR['WARNING'])
             print('datasize = ', i)
