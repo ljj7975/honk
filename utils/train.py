@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as data
 
-from . import model as mod
+import utils.model as mod
 from .manage_audio import AudioPreprocessor
 
 TEXT_COLOR = {
@@ -120,7 +120,23 @@ def train(config):
     if not config["no_cuda"]:
         torch.cuda.set_device(config["gpu_no"])
         model.cuda()
+
     optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0], nesterov=config["use_nesterov"], weight_decay=config["weight_decay"], momentum=config["momentum"])
+    if "optimizer" in config and config["optimizer"] == "SGD":
+        print("\tSGD", config["lr"][0])
+        optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][0])
+    if "optimizer" in config and config["optimizer"] == "adagrad":
+        print("\tadagrad", config["lr"][0])
+        optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][0], weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.Adagrad(model.parameters())
+    elif "optimizer" in config and config["optimizer"] == "adam":
+        print("\tadam", config["lr"][0]*0.1)
+        optimizer = torch.optim.Adam(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.Adam(model.parameters())
+    elif "optimizer" in config and config["optimizer"] == "RMSprop":
+        print("\tRMSprop", config["lr"][0]*0.1)
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=(config["lr"][0]*0.1), weight_decay=config["weight_decay"])
+        # optimizer = torch.optim.RMSprop(model.parameters())
     schedule_steps = config["schedule"]
     schedule_steps.append(np.inf)
     sched_idx = 0
@@ -147,7 +163,7 @@ def train(config):
     total_time = 0
 
     for epoch_idx in range(config["n_epochs"]):
-        
+
         for batch_idx, (model_in, labels) in enumerate(train_loader):
             model.train()
             optimizer.zero_grad()
@@ -168,9 +184,12 @@ def train(config):
                 print("changing learning rate to {}".format(config["lr"][sched_idx]))
                 optimizer = torch.optim.SGD(model.parameters(), lr=config["lr"][sched_idx],
                     nesterov=config["use_nesterov"], momentum=config["momentum"], weight_decay=config["weight_decay"])
+                if "optimizer" in config and config["optimizer"] == "adagrad":
+                    optimizer = torch.optim.Adagrad(model.parameters(), lr=config["lr"][sched_idx], weight_decay=config["weight_decay"])
+                elif "optimizer" in config and config["optimizer"] == "adam":
+                    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"][sched_idx], weight_decay=config["weight_decay"])
             print_eval("train step #{}".format(step_no), scores, labels, loss)
 
-        
         if epoch_idx % config["dev_every"] == config["dev_every"] - 1:
             model.eval()
             accs = []
@@ -190,7 +209,7 @@ def train(config):
                 # print("final dev accuracy: {}".format(avg_acc))
                 max_acc = avg_acc
                 model.save(config["output_file"])
-                
+
     return evaluate(config, model)
     # return total_time
 
@@ -303,6 +322,37 @@ def evaluate_epochs(base_config, config, original_acc, personalized_acc):
     best_index = np.argmax(acc_map['personalized'])
     return epochs, acc_map, best_index
 
+def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
+    print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
+
+    optimizers = ["RMSprop", "adam", "adagrad", "SGD"]
+
+    acc_map = {
+        'original':[],
+        'personalized':[]
+    }
+
+    for i in range(len(optimizers)):
+        config["optimizer"] = optimizers[i]
+        new_model_file_name = config['model_dir'] + 'optimizer_' + str(config["size_per_word"]) + '_' + str(config["optimizer"]) + '_' + config['model_file_suffix']
+        print("\n\n~~ optimizer : " + str(config["optimizer"]) + " ~~")
+        print("~~ Model path : " + new_model_file_name + " ~~")
+        config["input_file"] = config['original_model']
+        config["output_file"] = new_model_file_name
+
+        print("\n< train further only with personalized data >")
+        personalized_acc = train(config)
+
+        config["input_file"] = new_model_file_name
+        base_config["input_file"] = new_model_file_name
+        evaluate_personalization(base_config, config, acc_map, personalized_acc)
+
+        print(TEXT_COLOR['WARNING'] + '\t' + str(optimizers[i]) +' : '
+            + str(acc_map['original'][-1]) + " - " + str(acc_map['personalized'][-1]) + TEXT_COLOR['ENDC'])
+
+    best_index = np.argmax(acc_map['personalized'])
+    return optimizers, acc_map, best_index
+
 def reset_config(config, size_per_word, lr, n_epochs):
     config["size_per_word"] = size_per_word
     config["lr"] = lr
@@ -339,7 +389,7 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
     base_config = builder.config_from_argparse(parser)
 
     builder = ConfigBuilder(
@@ -348,15 +398,15 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "data_size", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "data_size", "all", "time"], default="all", type=str)
     personalized_config = builder.config_from_argparse(parser)
 
     base_config["model_class"] = mod_cls
-    base_config['model_dir'] = 'model/'
+    base_config['model_dir'] = 'trained/'
     base_config["personalized"] = False
 
     personalized_config["model_class"] = mod_cls
-    personalized_config['model_dir'] = 'model/'
+    personalized_config['model_dir'] = 'trained/'
     personalized_config["personalized"] = True
     personalized_config["keep_original"] = False
 
@@ -377,7 +427,7 @@ def main():
         train(base_config)
     else:
         # reusing pretrained base model
-        original_model_file_name = "model/res8-narrow.pt"
+        original_model_file_name = "trained/res8-narrow.pt"
 
     base_config["input_file"] = original_model_file_name
     personalized_config["input_file"] = original_model_file_name
@@ -527,6 +577,28 @@ def main():
             print('epochs = ', epochs)
             print('original = ', epochs_acc_map['original'])
             print('personalized = ', epochs_acc_map['personalized'])
+            print(TEXT_COLOR['ENDC'])
+
+    elif personalized_config["exp_type"] == "optimizer":
+        
+        for i in range(1, total_data_size + 1, 2):
+            print(TEXT_COLOR['WARNING'])
+            print('datasize = ', i)
+            print(TEXT_COLOR['ENDC'])
+
+            reset_config(personalized_config, i, default_lr, default_n_epochs)
+            optimizers, optimizer_acc_map, best_optimizer_index = evaluate_optimizer(base_config, personalized_config, original_acc, personalized_acc)
+
+            print(optimizers)
+            print(optimizer_acc_map)
+            print(best_optimizer_index)
+
+            print(TEXT_COLOR['OKGREEN'])
+            print("\n~~~~~~~~~~ best optimizer is " + str(optimizers[best_optimizer_index]) + " with acc of " + str(optimizer_acc_map['personalized'][best_optimizer_index]) + "~~~~~~")
+            print('datasize = ', i)
+            print('optimizers = ', optimizers)
+            print('original = ', optimizer_acc_map['original'])
+            print('personalized = ', optimizer_acc_map['personalized'])
             print(TEXT_COLOR['ENDC'])
 
     elif personalized_config["exp_type"] == "time":

@@ -6,8 +6,6 @@ import scipy.stats
 
 fig, axs = plt.subplots(5, 1, figsize=[6,24])
 
-# print(len(axs[0]))
-
 axs_mapping = {
     "brandon" : axs[0],
     "jay" : axs[1],
@@ -143,8 +141,8 @@ fig.legend(legends,     # The line objects
            ncol=3
            )
 
-fig.subplots_adjust(bottom=0.08, top=0.93, wspace=0.18, hspace=0.55, right=0.95, left=0.15)
+fig.subplots_adjust(bottom=0.05, top=0.94, wspace=0.18, hspace=0.25, right=0.95, left=0.15)
 fig.suptitle('Epoch\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
 
 fig.savefig("epoch.png")
-plt.show()
+# plt.show()
