@@ -11,7 +11,7 @@ import tqdm
 
 iteration = int(sys.argv[1])
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /home/public/kevin_branch/speech_commands --seed {0} --gpu_no 0 --personalized --personalized_data_folder /home/public/kevin_branch/personalized_speech_dataset/{1} --type eval --exp_type all'
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval --exp_type lr'
 
 people = ["brandon", "jay", "jack", "max", "kevin"]
 
@@ -56,7 +56,8 @@ def get_defaults(lines):
 
         if not optimizers:
             optimizers = search('optimizers :  (.*)', line, 1)
-            optimizers = optimizers.split(' ')
+    
+    optimizers = optimizers.split(' ')
 
     output = {
         "base_model" : base_model,
@@ -176,6 +177,14 @@ for i in tqdm.tqdm(range(iteration)):
         result = subprocess.run(command.split(), stdout=subprocess.PIPE)
         outputs = result.stdout.decode("utf-8").split("\n")
 
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
+        raw_file = os.path.join(dir_name, person + '_raw.txt')
+        with open(raw_file, 'w') as file:
+            for line in outputs:
+                file.write("%s\n" % line)
+
         summary = {
             "command" : command,
             "setting" : get_defaults(outputs),
@@ -187,17 +196,9 @@ for i in tqdm.tqdm(range(iteration)):
                 "epochs" : get_epochs(optimizer, outputs)
                 }
 
-        if not os.path.exists(dir_name):
-            os.makedirs(dir_name)
-
         summary_file = os.path.join(dir_name, person + '_summary.txt')
         with open(summary_file, 'w') as file:
             pprint.pprint(summary, stream=file)
-
-        raw_file = os.path.join(dir_name, person + '_raw.txt')
-        with open(raw_file, 'w') as file:
-            for line in outputs:
-                file.write("%s\n" % line)
 
         print("experiment for " + person + "is completed")
         print("\tsummary :", summary_file)
