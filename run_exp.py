@@ -8,10 +8,13 @@ import ast
 import random
 import sys
 import tqdm
+import time
+from datetime import timedelta
+
 
 iteration = int(sys.argv[1])
 
-command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/brandon/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/brandon/SSD/data/personalized_speech_data/{1} --type eval --exp_type lr'
+command_template = 'python -m utils.train --wanted_words yes no up down left right on off stop go --dev_every 1 --n_labels 12 --n_epochs 26 --weight_decay 0.00001 --lr 0.1 0.01 0.001 --schedule 3000 6000 --model res8-narrow --data_folder /media/public/SSD/data/speech_dataset --seed {0} --gpu_no 0 --personalized --personalized_data_folder /media/public/SSD/data/personalized_speech_data/{1} --type eval --exp_type lr'
 
 people = ["brandon", "jay", "jack", "max", "kevin", "joyce", "lee", "kang"]
 
@@ -170,9 +173,14 @@ for i in tqdm.tqdm(range(iteration)):
     random_seed = random.randint(1,1001)
     print(i, dir_name)
 
+    iter_start_time = time.time()
+
     for person in people:
+        exp_start_time = time.time()
+
         command = command_template.format(random_seed, person)
-        print(command)
+        print(datetime.datetime.now().strftime('%m%d_%H%M%S'))
+        print("running commadn : " + command)
         sys.stdout.flush()
         result = subprocess.run(command.split(), stdout=subprocess.PIPE)
         outputs = result.stdout.decode("utf-8").split("\n")
@@ -200,7 +208,13 @@ for i in tqdm.tqdm(range(iteration)):
         with open(summary_file, 'w') as file:
             pprint.pprint(summary, stream=file)
 
-        print("experiment for " + person + "is completed")
+        print("experiment for " + person + " is completed")
         print("\tsummary :", summary_file)
         print("\traw_file :", raw_file)
+        exp_elasped = time.time() - exp_start_time
+        print("\texp elasped time :" + str(timedelta(seconds=exp_elasped)))
+        print("\n")
         sys.stdout.flush()
+
+    iter_elasped = time.time() - iter_start_time
+    print("\titer⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
