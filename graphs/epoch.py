@@ -4,14 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
-fig, axs = plt.subplots(5, 1, figsize=[6,24])
+fig, axs = plt.subplots(8, 1, figsize=[6,24])
 
 axs_mapping = {
     "brandon" : axs[0],
     "jay" : axs[1],
     "jack" : axs[2],
     "max" : axs[3],
-    "kevin" : axs[4]
+    "kevin" : axs[4],
+    "lee" : axs[5],
+    "kang" : axs[6],
+    "joyce" : axs[7]
 }
 
 per_acc = {}
@@ -21,7 +24,10 @@ original = {
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
     "max" : {'1':[], '3':[], '5':[]},
-    "kevin" : {'1':[], '3':[], '5':[]}
+    "kevin" : {'1':[], '3':[], '5':[]},
+    "lee" : {'1':[], '3':[], '5':[]},
+    "kang" : {'1':[], '3':[], '5':[]},
+    "joyce" : {'1':[], '3':[], '5':[]}
 }
 
 personalized = {
@@ -29,10 +35,13 @@ personalized = {
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
     "max" : {'1':[], '3':[], '5':[]},
-    "kevin" : {'1':[], '3':[], '5':[]}
+    "kevin" : {'1':[], '3':[], '5':[]},
+    "lee" : {'1':[], '3':[], '5':[]},
+    "kang" : {'1':[], '3':[], '5':[]},
+    "joyce" : {'1':[], '3':[], '5':[]}
 }
 
-result_dir = "../temp"
+result_dir = "../results"
 metric = "epochs"
 learning_rate = None
 base_model_acc = None
@@ -47,6 +56,7 @@ for exp in os.listdir(result_dir):
 
             file_path = os.path.join(result_dir, exp, file_name)
             summary = ast.literal_eval(open(file_path, 'r').read())
+
             learning_rate = summary['setting']['lr']
             base_model_acc = summary['setting']['original_acc']
             per_acc[person] = summary['setting']['personlized_acc']
@@ -103,7 +113,10 @@ name_mapping = {
     "JAY":"B",
     "JACK":"C",
     "MAX":"D",
-    "KEVIN":"E"
+    "KEVIN":"E",
+    "LEE":"F",
+    "KANG":"G",
+    "JOYCE":"H"
 }
 
 for person, axis in axs_mapping.items():

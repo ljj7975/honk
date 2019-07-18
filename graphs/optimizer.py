@@ -4,14 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
-fig, axs = plt.subplots(5, 1, figsize=[6,24])
+fig, axs = plt.subplots(8, 1, figsize=[6,24])
 
 axs_mapping = {
     "brandon" : axs[0],
     "jay" : axs[1],
     "jack" : axs[2],
     "max" : axs[3],
-    "kevin" : axs[4]
+    "kevin" : axs[4],
+    "lee" : axs[5],
+    "kang" : axs[6],
+    "joyce" : axs[7]
 }
 
 per_acc = {}
@@ -21,7 +24,10 @@ original = {
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
     "max" : {'1':[], '3':[], '5':[]},
-    "kevin" : {'1':[], '3':[], '5':[]}
+    "kevin" : {'1':[], '3':[], '5':[]},
+    "lee" : {'1':[], '3':[], '5':[]},
+    "kang" : {'1':[], '3':[], '5':[]},
+    "joyce" : {'1':[], '3':[], '5':[]}
 }
 
 personalized = {
@@ -29,7 +35,10 @@ personalized = {
     "jay" : {'1':[], '3':[], '5':[]},
     "jack" : {'1':[], '3':[], '5':[]},
     "max" : {'1':[], '3':[], '5':[]},
-    "kevin" : {'1':[], '3':[], '5':[]}
+    "kevin" : {'1':[], '3':[], '5':[]},
+    "lee" : {'1':[], '3':[], '5':[]},
+    "kang" : {'1':[], '3':[], '5':[]},
+    "joyce" : {'1':[], '3':[], '5':[]}
 }
 
 
