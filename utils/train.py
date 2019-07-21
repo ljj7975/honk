@@ -402,7 +402,7 @@ def main():
         global_config)
     parser = builder.build_argparse()
     parser.add_argument("--type", choices=["train", "eval"], default="train", type=str)
-    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizers", "all", "time"], default="all", type=str)
+    parser.add_argument("--exp_type", choices=["lr", "epochs", "optimizer", "all", "time"], default="all", type=str)
     personalized_config = builder.config_from_argparse(parser)
 
     base_config["model_class"] = mod_cls
