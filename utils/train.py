@@ -528,7 +528,7 @@ def main():
             print('personalized = ', epochs_acc_map['personalized'])
             print(TEXT_COLOR['ENDC'])
 
-    if personalized_config["exp_type"] == "all" or personalized_config["exp_type"] == "optimizers":
+    if personalized_config["exp_type"] == "all" or personalized_config["exp_type"] == "optimizer":
 
         # Epochs
         print(TEXT_COLOR['FAIL'])
