@@ -13,17 +13,17 @@ for optimizer in optimizers:
 
     print(optimizer)
 
-    fig, axs = plt.subplots(8, 1, figsize=[6,24])
+    fig, axs = plt.subplots(4, 2, figsize=[12,24])
 
     axs_mapping = {
-        "brandon" : axs[0],
-        "jay" : axs[1],
-        "jack" : axs[2],
-        "max" : axs[3],
-        "kevin" : axs[4],
-        "lee" : axs[5],
-        "kang" : axs[6],
-        "joyce" : axs[7]
+        "brandon" : axs[0][0],
+        "jay" : axs[0][1],
+        "jack" : axs[1][0],
+        "max" : axs[1][1],
+        "kevin" : axs[2][0],
+        "lee" : axs[2][1],
+        "kang" : axs[3][0],
+        "joyce" : axs[3][1]
     }
 
     per_acc = {}

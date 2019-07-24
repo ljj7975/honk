@@ -326,6 +326,7 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
     print(TEXT_COLOR['WARNING'] + "\n~~ personalization (optimizer) ~~" + TEXT_COLOR['ENDC'])
 
     optimizers = ["RMSprop", "adam", "adagrad", "SGD"]
+    best_lr = [0.001, 0.001, 0.01, 0.01]
 
     acc_map = {
         'original':[],
@@ -334,6 +335,7 @@ def evaluate_optimizer(base_config, config, original_acc, personalized_acc):
 
     for i in range(len(optimizers)):
         config["optimizer"] = optimizers[i]
+        config["lr"] = [best_lr[i]]
         new_model_file_name = config['model_dir'] + 'optimizer_' + str(config["size_per_word"]) + '_' + str(config["optimizer"]) + '_' + config['model_file_suffix']
 
         print("\n\n~~ optimizer : " + str(config["optimizer"]) + " ~~")
@@ -552,7 +554,6 @@ def main():
             print("\n~~~~~~~~~~ best optimizer is " + str(best_optimizers) + " with acc of " + str(best_optimizers_acc) + "~~~~~~")
             print('optimizer = ', optimizers)
             print('datasize = ', i)
-            print('lr = ', personalized_config['lr'])
             print('epochs = ', personalized_config['n_epochs'])
             print('original = ', optimizers_acc_map['original'])
             print('personalized = ', optimizers_acc_map['personalized'])

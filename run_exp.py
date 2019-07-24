@@ -79,6 +79,43 @@ def get_defaults(lines):
 
     return output
 
+def get_optimizer(lines):
+    results = {}
+
+    flag = False
+    data_size = None
+    original = None
+    optimizer = None
+    personlized = None
+
+    for line in lines:
+        if not flag and "~~~~~~~~~~ best optimizer" in line:
+            flag = True
+            data_size = None
+            original = None
+            optimizer = None
+            personlized = None
+        else:
+            if not data_size:
+                data_size = search('datasize = (.*)', line, 1)
+
+            if not optimizer:
+                optimizer = search('optimizer = (.*)', line, 1)
+
+            if not original:
+                original = search('original = (.*)', line, 1)
+
+            if not personlized:
+                personlized = search('personalized = (.*)', line, 1)
+
+            if data_size and optimizer and original and personlized:
+                results[data_size] = {
+                    "optimizer" : optimizer,
+                    "original" : ast.literal_eval(original),
+                    "personlized" : ast.literal_eval(personlized)
+                }
+                flag = False
+    return results
 
 def get_learning_rate(target_opt, lines):
     results = {}
@@ -203,6 +240,8 @@ for i in tqdm.tqdm(range(iteration)):
                 "lr" : get_learning_rate(optimizer, outputs),
                 "epochs" : get_epochs(optimizer, outputs)
                 }
+
+        summary["optimizer"] = get_optimizer(outputs)
 
         summary_file = os.path.join(dir_name, person + '_summary.txt')
         with open(summary_file, 'w') as file:
