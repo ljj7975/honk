@@ -20,8 +20,8 @@ for optimizer in optimizers:
         "jay" : axs[0][1],
         "jack" : axs[1][0],
         "max" : axs[1][1],
-        "kevin" : axs[2][0],
-        "lee" : axs[2][1],
+        "lee" : axs[2][0],
+        "kevin" : axs[2][1],
         "kang" : axs[3][0],
         "joyce" : axs[3][1]
     }
@@ -122,8 +122,8 @@ for optimizer in optimizers:
         "JAY":"B",
         "JACK":"C",
         "MAX":"D",
-        "KEVIN":"E",
-        "LEE":"F",
+        "LEE":"E",
+        "KEVIN":"F",
         "KANG":"G",
         "JOYCE":"H"
     }
