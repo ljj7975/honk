@@ -205,6 +205,11 @@ def get_epochs(target_opt, lines):
                 flag = False
     return results
 
+if not os.path.exists('results'):
+    os.makedirs('results')
+
+log_file = open('results/' + datetime.datetime.now().strftime('%m%d_%H%M%S') + '.txt', 'w')
+
 for i in tqdm.tqdm(range(iteration)):
     dir_name = 'results/' + datetime.datetime.now().strftime('%m%d_%H%M%S')
     random_seed = random.randint(1,1001)
@@ -217,7 +222,13 @@ for i in tqdm.tqdm(range(iteration)):
 
         command = command_template.format(random_seed, person)
         print(datetime.datetime.now().strftime('%m%d_%H%M%S'))
-        print("running commadn : " + command)
+        print("running command : " + command)
+
+        log_file.write(str(i) + ' - ' + dir_name + " : " + person)
+        log_file.write(datetime.datetime.now().strftime('%m%d_%H%M%S'))
+        log_file.write("\trunning command : " + command)
+        log_file.flush()
+
         sys.stdout.flush()
         result = subprocess.run(command.split(), stdout=subprocess.PIPE)
         outputs = result.stdout.decode("utf-8").split("\n")
@@ -255,5 +266,14 @@ for i in tqdm.tqdm(range(iteration)):
         print("\n")
         sys.stdout.flush()
 
+        log_file.write("\texp elasped time :" + str(timedelta(seconds=exp_elasped)))
+        log_file.write("\n")
+        log_file.flush()
+
     iter_elasped = time.time() - iter_start_time
     print("\titer⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
+
+    log_file.write("iter⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
+    log_file.flush()
+
+log_file.close()
