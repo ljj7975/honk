@@ -217,16 +217,17 @@ for i in tqdm.tqdm(range(iteration)):
 
     iter_start_time = time.time()
 
-    for person in people:
+    for index, person in enumerate(people):
         exp_start_time = time.time()
 
         command = command_template.format(random_seed, person)
         print(datetime.datetime.now().strftime('%m%d_%H%M%S'))
         print("running command : " + command)
 
-        log_file.write(str(i) + ' - ' + dir_name + " : " + person)
-        log_file.write(datetime.datetime.now().strftime('%m%d_%H%M%S'))
-        log_file.write("\trunning command : " + command)
+        log_file.write(str(i) + ' - ' + dir_name + "\n")
+        log_file.write(str(index) + "/" + str(len(people)) + " : " + person + "\n")
+        log_file.write(datetime.datetime.now().strftime('%m%d_%H%M%S') + "\n")
+        log_file.write("\trunning command : " + command + "\n")
         log_file.flush()
 
         sys.stdout.flush()
@@ -266,14 +267,13 @@ for i in tqdm.tqdm(range(iteration)):
         print("\n")
         sys.stdout.flush()
 
-        log_file.write("\texp elasped time :" + str(timedelta(seconds=exp_elasped)))
-        log_file.write("\n")
+        log_file.write("\texp elasped time :" + str(timedelta(seconds=exp_elasped)) + "\n")
         log_file.flush()
 
     iter_elasped = time.time() - iter_start_time
     print("\titer⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
 
-    log_file.write("iter⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
+    log_file.write("iter⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)) + "\n")
     log_file.flush()
 
 log_file.close()
