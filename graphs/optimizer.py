@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
-fig, axs = plt.subplots(4, 2, figsize=[12,24])
+fig, axs = plt.subplots(4, 2, figsize=[12,16])
 
 axs_mapping = {
     "brandon" : axs[0][0],
@@ -152,11 +152,11 @@ for person, axis in axs_mapping.items():
 fig.legend(legends,     # The line objects
            labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels
            loc=8,  # Position of legend
-           ncol=3
+           ncol=3, bbox_to_anchor=(0.5, 0.02)
            )
 
 
-fig.subplots_adjust(bottom=0.05, top=0.94, wspace=0.18, hspace=0.25, right=0.95, left=0.15)
+fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
 # fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
 fig.suptitle('Optimizer\nbase model accuracy - {0} %'.format(91.36))
 

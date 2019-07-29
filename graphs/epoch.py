@@ -11,7 +11,7 @@ if not os.path.exists(optimizer):
 
 print(optimizer)
 
-fig, axs = plt.subplots(4, 2, figsize=[12,24])
+fig, axs = plt.subplots(4, 2, figsize=[12,16])
 
 axs_mapping = {
     "brandon" : axs[0][0],
@@ -161,7 +161,7 @@ fig.legend(legends,     # The line objects
            ncol=3, bbox_to_anchor=(0.5, 0.02)
            )
 
-fig.subplots_adjust(bottom=0.075, top=0.94, wspace=0.18, hspace=0.25, right=0.9, left=0.15)
+fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
 fig.suptitle('Epoch\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
 
 fig.savefig(optimizer+"/epoch.png")
