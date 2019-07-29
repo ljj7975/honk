@@ -135,7 +135,7 @@ for person, axis in axs_mapping.items():
     axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], acc_mapping[person.upper()]))
 
     axis.set(xlabel='optimizer', ylabel='accuracy', xticks=x_ticks, xticklabels=optimizers)
-    axis.set_ylim(0.0, 1.0)
+    axis.set_ylim(0.8, 1.0)
     # axis.grid()
 
     for i in original[person].keys():
