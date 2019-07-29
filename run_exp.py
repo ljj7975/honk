@@ -270,7 +270,7 @@ for i in tqdm.tqdm(range(iteration)):
         log_file.write("\texp elasped time :" + str(timedelta(seconds=exp_elasped)) + "\n")
         log_file.flush()
 
-    iter_elasped = time.time() - iter_start_time
+    iter_elapsed = time.time() - iter_start_time
     print("\titer⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)))
 
     log_file.write("iter⋅elasped⋅time:⋅" + str(timedelta(seconds=iter_elapsed)) + "\n")
