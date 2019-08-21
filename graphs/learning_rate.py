@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 
+from pprint import pprint
+
 optimizer = "SGD"
 
 if not os.path.exists(optimizer):
@@ -12,19 +14,37 @@ if not os.path.exists(optimizer):
 print(optimizer)
 
 fig, axs = plt.subplots(4, 2, figsize=[12,16])
+fig, axs = plt.subplots(2, 2, figsize=[8,8])
+
+# axs_mapping = {
+#     "brandon" : axs[0][0],
+#     "jay" : axs[0][1],
+#     "jack" : axs[1][0],
+#     "max" : axs[1][1],
+#     "lee" : axs[2][0],
+#     "kevin" : axs[2][1],
+#     "kang" : axs[3][0],
+#     "joyce" : axs[3][1]
+# }
 
 axs_mapping = {
     "brandon" : axs[0][0],
     "jay" : axs[0][1],
     "jack" : axs[1][0],
-    "max" : axs[1][1],
-    "lee" : axs[2][0],
-    "kevin" : axs[2][1],
-    "kang" : axs[3][0],
-    "joyce" : axs[3][1]
+    "kang" : axs[1][1]
 }
 
-per_acc = {}
+
+per_acc = {
+    "brandon" : [],
+    "jay" : [],
+    "jack" : [],
+    "max" : [],
+    "kevin" : [],
+    "lee" : [],
+    "kang" : [],
+    "joyce" : []
+}
 
 original = {
     "brandon" : {'1':[], '3':[], '5':[]},
@@ -52,7 +72,7 @@ personalized = {
 result_dir = "../results"
 metric = "lr"
 learning_rate = None
-base_model_acc = None
+base_model_acc = []
 lr = None
 
 print("total exp : ", len(os.listdir(result_dir)))
@@ -68,14 +88,20 @@ for exp in os.listdir(result_dir):
                 epochs = summary['setting']['epochs']
             except Exception:
                 epochs = 20
-            base_model_acc = summary['setting']['original_acc']
-            per_acc[person] = summary['setting']['personlized_acc']
+            base_model_acc.append(summary['setting']['original_acc'])
+            per_acc[person].append(summary['setting']['personlized_acc'])
             results = summary[optimizer][metric]
 
             for key in results.keys():
                 lr = results[key]['lr']
                 original[person][key].append(results[key]['original'])
                 personalized[person][key].append(results[key]['personlized'])
+
+base_model_acc = list(set(base_model_acc))
+base_model_acc = np.mean(base_model_acc)
+
+for key, value in per_acc.items():
+    per_acc[key] = np.mean(value)
 
 line_color = [ '#abdda4', '#fdae61', '#2b83ba', '#ffffbf', '#d7191c']
 
@@ -116,7 +142,7 @@ name_mapping = {
     "MAX":"D",
     "LEE":"E",
     "KEVIN":"F",
-    "KANG":"G",
+    "KANG":"D",
     "JOYCE":"H"
 }
 
@@ -134,7 +160,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1:.2f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
 
     axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
     axis.set_ylim(0.7, 1.0)
@@ -159,11 +185,10 @@ for person, axis in axs_mapping.items():
 fig.legend(legends,     # The line objects
            labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels for each line
            loc=8,  # Position of legend
-           ncol=3, bbox_to_anchor=(0.5, 0.02)
+           ncol=3, bbox_to_anchor=(0.5, 0.03)
            )
 
-
-fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
-fig.suptitle('Learning Rate\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
+fig.subplots_adjust(bottom=0.17, top=0.88, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
+fig.suptitle('Learning Rate\nbase model accuracy - {0:.2f} %'.format(round(base_model_acc * 100, 2)))
 
 fig.savefig(optimizer+"/learning_rate.png")
