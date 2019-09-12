@@ -3,6 +3,7 @@ import ast
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
+from pprint import pprint
 
 fig, axs = plt.subplots(4, 2, figsize=[12,16])
 
@@ -17,8 +18,16 @@ axs_mapping = {
     "joyce" : axs[3][1]
 }
 
-
-per_acc = {}
+per_acc = {
+    "brandon" : [],
+    "jay" : [],
+    "jack" : [],
+    "max" : [],
+    "kevin" : [],
+    "lee" : [],
+    "kang" : [],
+    "joyce" : []
+}
 
 optimizers = ["RMSprop", "adam", "adagrad", "SGD"]
 
@@ -42,15 +51,21 @@ for name in axs_mapping.keys():
 result_dir = "../results"
 metric = "optimizer"
 learning_rate = None
-base_model_acc = None
+base_model_acc = []
 
 
 
 print("total exp : ", len(os.listdir(result_dir)))
 
 for exp in os.listdir(result_dir):
+    if exp.startswith("."):
+        continue
+
     print(exp)
     for file_name in os.listdir(os.path.join(result_dir, exp)):
+        if file_name.startswith("."):
+            continue
+
         if "summary" in file_name:
             person = file_name.split("_")[0]
 
@@ -60,8 +75,8 @@ for exp in os.listdir(result_dir):
                 epochs = summary['setting']['epochs']
             except Exception:
                 epochs = 20
-            base_model_acc = summary['setting']['original_acc']
-            per_acc[person] = summary['setting']['personlized_acc']
+            base_model_acc.append(summary['setting']['original_acc'])
+            per_acc[person].append(summary['setting']['personlized_acc'])
             results = summary[metric]
 
             for key in results.keys():
@@ -69,10 +84,13 @@ for exp in os.listdir(result_dir):
                     original[person][key][optimizer].append(results[key]['original'][ind])
                     personalized[person][key][optimizer].append(results[key]['personlized'][ind])
 
+base_model_acc = list(set(base_model_acc))
+base_model_acc = np.mean(base_model_acc)
 
+for key, value in per_acc.items():
+    per_acc[key] = np.mean(value)
 
-                    line_color = [ '#abdda4', '#fdae61', '#2b83ba', '#ffffbf', '#d7191c']
-
+line_color = [ '#abdda4', '#fdae61', '#2b83ba', '#ffffbf', '#d7191c']
 
 def mean_confidence_interval(data, confidence=0.95):
     a = 1.0 * np.array(data)
@@ -102,16 +120,16 @@ name_mapping = {
     "JOYCE":"H"
 }
 
-acc_mapping = {
-    "BRANDON":"89.79",
-    "JAY":"88.75",
-    "JACK":"80.83",
-    "MAX":"78.12",
-    "KEVIN":"91.67",
-    "LEE":"89.17",
-    "KANG":"76.88",
-    "JOYCE":"90.83"
-}
+# acc_mapping = {
+#     "BRANDON":"89.79",
+#     "JAY":"88.75",
+#     "JACK":"80.83",
+#     "MAX":"78.12",
+#     "KEVIN":"91.67",
+#     "LEE":"89.17",
+#     "KANG":"76.88",
+#     "JOYCE":"90.83"
+# }
 
 width = 0.15
 
@@ -132,10 +150,13 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], acc_mapping[person.upper()]))
+    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)))
 
     axis.set(xlabel='optimizer', ylabel='accuracy', xticks=x_ticks, xticklabels=optimizers)
-    axis.set_ylim(0.8, 1.0)
+    # axis.set_ylim(0.8, 1.0)
+
+    axis.set_yticks(np.arange(0.0, 1.05, 0.1))
+
     # axis.grid()
 
     for i in original[person].keys():
@@ -158,7 +179,7 @@ fig.legend(legends,     # The line objects
 
 fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
 # fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
-fig.suptitle('Optimizer\nbase model accuracy - {0} %'.format(91.36))
+fig.suptitle('Optimizer\nbase model accuracy - {0:.1f} %'.format(round(base_model_acc * 100, 1)))
 
 fig.savefig("optimizer.png")
 # plt.show()

@@ -24,7 +24,16 @@ axs_mapping = {
     "joyce" : axs[3][1]
 }
 
-per_acc = {}
+per_acc = {
+    "brandon" : [],
+    "jay" : [],
+    "jack" : [],
+    "max" : [],
+    "kevin" : [],
+    "lee" : [],
+    "kang" : [],
+    "joyce" : []
+}
 
 original = {
     "brandon" : {'1':[], '3':[], '5':[]},
@@ -51,21 +60,27 @@ personalized = {
 result_dir = "../results"
 metric = "epochs"
 learning_rate = None
-base_model_acc = None
+base_model_acc = []
 epochs = None
 
 print("total exp : ", len(os.listdir(result_dir)))
 for exp in os.listdir(result_dir):
+    if exp.startswith("."):
+        continue
+
     print(exp)
     for file_name in os.listdir(os.path.join(result_dir, exp)):
+        if file_name.startswith("."):
+            continue
+
         if "summary" in file_name:
             person = file_name.split("_")[0]
 
             file_path = os.path.join(result_dir, exp, file_name)
             summary = ast.literal_eval(open(file_path, 'r').read())
             learning_rate = summary['setting']['lr']
-            base_model_acc = summary['setting']['original_acc']
-            per_acc[person] = summary['setting']['personlized_acc']
+            base_model_acc.append(summary['setting']['original_acc'])
+            per_acc[person].append(summary['setting']['personlized_acc'])
 
             results = summary[optimizer][metric]
 
@@ -73,6 +88,13 @@ for exp in os.listdir(result_dir):
                 epochs = results[key]['epochs']
                 original[person][key].append(results[key]['original'])
                 personalized[person][key].append(results[key]['personlized'])
+
+base_model_acc = list(set(base_model_acc))
+base_model_acc = np.mean(base_model_acc)
+
+for key, value in per_acc.items():
+    per_acc[key] = np.mean(value)
+
 
 line_color = [ '#abdda4', '#fdae61', '#2b83ba', '#ffffbf', '#d7191c']
 
@@ -133,7 +155,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)))
     axis.set(xlabel='number of epoch', ylabel='accuracy', xticks=epochs[::2])
     axis.set_ylim(0.75, 1.0)
     axis.grid()
@@ -162,6 +184,6 @@ fig.legend(legends,     # The line objects
            )
 
 fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
-fig.suptitle('Epoch\nbase model accuracy - {0} %'.format(round(base_model_acc * 100, 2)))
+fig.suptitle('Epoch\nbase model accuracy - {0:.1f} %'.format(round(base_model_acc * 100, 1)))
 
 fig.savefig(optimizer+"/epoch.png")
