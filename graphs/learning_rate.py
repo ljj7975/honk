@@ -160,7 +160,7 @@ for person, axis in axs_mapping.items():
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1:.2f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 2)))
+    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)))
 
     axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
     axis.set_ylim(0.7, 1.0)
@@ -189,6 +189,6 @@ fig.legend(legends,     # The line objects
            )
 
 fig.subplots_adjust(bottom=0.17, top=0.88, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
-fig.suptitle('Learning Rate\nbase model accuracy - {0:.2f} %'.format(round(base_model_acc * 100, 2)))
+fig.suptitle('Learning Rate\nbase model accuracy - {0:.1f} %'.format(round(base_model_acc * 100, 1)))
 
 fig.savefig(optimizer+"/learning_rate.png")
