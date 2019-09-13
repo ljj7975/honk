@@ -74,8 +74,14 @@ epochs = None
 
 print("total exp : ", len(os.listdir(result_dir)))
 for exp in os.listdir(result_dir):
+    if exp.startswith('.'):
+        continue
+
     print(exp)
     for file_name in os.listdir(os.path.join(result_dir, exp)):
+        if file_name.startswith('.'):
+            continue
+
         if "summary" in file_name:
             person = file_name.split("_")[0]
 
