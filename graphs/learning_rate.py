@@ -3,6 +3,7 @@ import ast
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
+import pylab
 
 optimizer = "SGD"
 
@@ -149,43 +150,60 @@ def plot_mean_and_CI(axis, mean, lb, ub, fmt=None, color_mean=None, color_shadin
     # plot the mean on top
     return axis.plot(x_ticks, mean, fmt, color=color_mean, label=label)
 
-for person, axis in axs_mapping.items():
+# for person, axis in axs_mapping.items():
+for person in name_mapping.keys():
+    person = person.lower()
     processed_original = []
     processed_personalized = []
 
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)))
+    fig, axis = plt.subplots(1, 1, figsize=[7,5])
 
-    axis.set(xlabel='learning rate', ylabel='accuracy', xticks=x_ticks, xticklabels=lr)
-    axis.set_ylim(0.7, 1.0)
+    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)), fontsize=23, y=1.04)
+
+    axis.xaxis.set_ticks(x_ticks)
+    axis.set_xticklabels(lr)
+    yl = axis.set_xlabel('Learning rate', fontsize=20, labelpad=14)
+    xl = axis.set_ylabel('Accuracy', fontsize=20, labelpad=14)
+
+    axis.set_ylim(0.70, 1.0)
+    axis.yaxis.set_ticks(np.arange(0.70, 1.03, 0.05))
     axis.grid()
 
+    for tick in axis.xaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+
+    for tick in axis.yaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+
     for i in original[person].keys():
+
         original_mean, original_lower, original_upper = process_data(original_dict[i])
         original_error = [original_lower, original_upper]
         personalized_mean, personalized_lower, personalized_upper = process_data(personalized_dict[i])
         personalized_error = [personalized_lower, personalized_upper]
 
-        original_line = plot_mean_and_CI(axis, original_mean, original_lower, original_upper, fmt='--', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='original')
+        original_line = plot_mean_and_CI(axis, original_mean, original_lower, original_upper, fmt='--', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label=f'original_{i}')
 
-        personalized_line = plot_mean_and_CI(axis, personalized_mean, personalized_lower, personalized_upper, fmt='-', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label='personalized')
-
-#         original_line = axis.plot(x_ticks, original_mean, '--', color=line_color[int(i)-1], label='original')
-#         personalized_line = axis.plot(x_ticks, personalized_mean, '-', color=line_color[int(i)-1], label='personalized')
+        personalized_line = plot_mean_and_CI(axis, personalized_mean, personalized_lower, personalized_upper, fmt='-', color_mean=line_color[int(i)-1], color_shading=line_color[int(i)-1], label=f'personalized_{i}')
 
         legends.append(original_line)
         legends.append(personalized_line)
 
-fig.legend(legends,     # The line objects
-           labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels for each line
-           loc=8,  # Position of legend
-           ncol=3, bbox_to_anchor=(0.5, 0.02)
-           )
+    plt.rcParams.update({'font.size': 40})
 
+    fig.subplots_adjust(bottom=0.20, top=0.87, wspace=0.4, hspace=0.35, right=0.95, left=0.20)
 
-fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
-fig.suptitle('Learning Rate\nbase model accuracy - {0:.1f} %'.format(round(base_model_acc * 100, 1)))
+    file_name = '{0}-{1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1))
+    plt.savefig(f"lr-{name_mapping[person.upper()]}")
 
-fig.savefig(optimizer+"/learning_rate.png")
+# create a second figure for the legend
+figLegend = pylab.figure(figsize = (20.5,2.4))
+
+# produce a legend for the objects in the other figure
+pylab.figlegend(*axis.get_legend_handles_labels(), loc='upper left', ncol=3)
+
+# save the two figures to files
+figLegend.savefig("lr-legend.png")

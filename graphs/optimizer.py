@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 from pprint import pprint
+import pylab
 
 fig, axs = plt.subplots(4, 2, figsize=[12,16])
 
@@ -134,8 +135,12 @@ name_mapping = {
 width = 0.15
 
 loc = (np.arange(6) * width) - (width * 3)
+x_ticks = x_ticks[1:]
 
 def plot_mean_and_CI(ind, axis, mean, color_mean=None, label=None):
+
+    mean = mean[1:]
+
     legend = None
     if ind % 2 == 0:
         legend = axis.bar(x_ticks+loc[ind], mean, width, color=color_mean, alpha=.5, label=label)
@@ -143,19 +148,33 @@ def plot_mean_and_CI(ind, axis, mean, color_mean=None, label=None):
         legend = axis.bar(x_ticks+loc[ind], mean, width, color=color_mean, label=label)
     return legend
 
-for person, axis in axs_mapping.items():
+for person in name_mapping.keys():
+    person = person.lower()
     processed_original = []
     processed_personalized = []
 
     original_dict = original[person]
     personalized_dict = personalized[person]
 
-    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)))
+    fig, axis = plt.subplots(1, 1, figsize=[7,5])
 
-    axis.set(xlabel='optimizer', ylabel='accuracy', xticks=x_ticks, xticklabels=optimizers)
-    # axis.set_ylim(0.8, 1.0)
+    axis.set_title('{0} - {1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1)), fontsize=23, y=1.04)
 
-    axis.set_yticks(np.arange(0.0, 1.05, 0.1))
+    axis.xaxis.set_ticks(x_ticks)
+    axis.set_xticklabels(optimizers[1:])
+    yl = axis.set_xlabel('Optimizer', fontsize=20, labelpad=14)
+    xl = axis.set_ylabel('Accuracy', fontsize=20, labelpad=14)
+
+    axis.set_ylim(0.8, 1.0)
+    axis.set_yticks(np.arange(0.8, 1.03, 0.05))
+    axis.yaxis.grid()
+
+    for tick in axis.xaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+
+    for tick in axis.yaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+
 
     # axis.grid()
 
@@ -170,16 +189,19 @@ for person, axis in axs_mapping.items():
         legends.append(original_line)
         legends.append(personalized_line)
 
-fig.legend(legends,     # The line objects
-           labels=["original_1", "personalized_1", "original_3", "personalized_3", "original_5", "personalized_5"],   # The labels
-           loc=8,  # Position of legend
-           ncol=3, bbox_to_anchor=(0.5, 0.02)
-           )
 
+    plt.rcParams.update({'font.size': 40})
 
-fig.subplots_adjust(bottom=0.1, top=0.92, wspace=0.4, hspace=0.35, right=0.9, left=0.15)
-# fig.suptitle('Learning Rate ( epochs = {0} )\nbase model accuracy : {1} %'.format(epochs, round(base_model_acc * 100, 2)))
-fig.suptitle('Optimizer\nbase model accuracy - {0:.1f} %'.format(round(base_model_acc * 100, 1)))
+    fig.subplots_adjust(bottom=0.20, top=0.87, wspace=0.4, hspace=0.35, right=0.95, left=0.20)
 
-fig.savefig("optimizer.png")
-# plt.show()
+    file_name = '{0}-{1:.1f} %'.format("User " + name_mapping[person.upper()], round(per_acc[person] * 100, 1))
+    plt.savefig(f"optimizer-{name_mapping[person.upper()]}")
+
+# create a second figure for the legend
+figLegend = pylab.figure(figsize = (18.6,2.4))
+
+# produce a legend for the objects in the other figure
+pylab.figlegend(*axis.get_legend_handles_labels(), loc='upper left', ncol=3)
+
+# save the two figures to files
+figLegend.savefig("optimizer-legend.png")
